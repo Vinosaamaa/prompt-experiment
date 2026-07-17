@@ -23,24 +23,43 @@ Original experiment prompts are archived in [`prompts/`](./prompts/).
 ## Quick start (local)
 
 ```bash
-# Lab homepage + static experiments
+# Lab homepage + all static paths (from repo root)
 python3 -m http.server 8080
 # → http://localhost:8080
+# → http://localhost:8080/geometry-dash-autoplay/
+# → http://localhost:8080/bridge-horror-house/   (needs build first — see below)
+# → http://localhost:8080/jack-3d-portfolio/     (needs build first — see below)
 
-# Or build the full Cloudflare publish folder (includes Vite games)
+# Or build everything for Cloudflare-style output
 npm run build
 npx --yes serve .cf-pages
 ```
 
-Bridge Horror House alone:
+### Neon Dash (static single HTML)
+
+No install required — it’s one self-contained file:
+
+```bash
+# Option A: open the file directly in a browser
+open geometry-dash-autoplay/index.html   # macOS
+# xdg-open geometry-dash-autoplay/index.html   # Linux
+
+# Option B: serve the folder
+cd geometry-dash-autoplay
+python3 -m http.server 8765
+# → http://localhost:8765
+```
+
+### Bridge Horror House (Vite + Three.js)
 
 ```bash
 cd bridge-horror-house
 npm install
 npm run dev
+# → http://localhost:5180
 ```
 
-Jack — 3D Creator portfolio:
+### Jack — 3D Creator portfolio (Vite + React)
 
 ```bash
 cd jack-3d-portfolio
