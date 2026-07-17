@@ -1,0 +1,1970 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+<title>Neon Dash — Geometry Dash Autoplay</title>
+<style>
+  :root {
+    --bg: #0a0a1a;
+    --cyan: #00f0ff;
+    --magenta: #ff00aa;
+    --lime: #a8ff00;
+    --orange: #ff8800;
+    --pink: #ff66cc;
+    --red: #ff2244;
+    --purple: #aa44ff;
+    --gray: #aabbcc;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: var(--bg);
+    font-family: "Courier New", Courier, monospace;
+    color: #fff;
+    touch-action: none;
+    user-select: none;
+  }
+  #wrap {
+    position: relative;
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+  }
+  canvas#game {
+    display: block;
+    width: 100%; height: 100%;
+    background: #0a0a1a;
+    cursor: pointer;
+  }
+  .overlay {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    background: rgba(5,5,20,0.88);
+    z-index: 10;
+    padding: 16px;
+  }
+  .overlay.hidden { display: none; }
+  .title {
+    font-size: clamp(28px, 7vw, 64px);
+    font-weight: 900;
+    letter-spacing: 2px;
+    text-shadow:
+      0 0 12px var(--cyan),
+      3px 3px 0 #000,
+      -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+    margin-bottom: 8px;
+    color: #fff;
+  }
+  .subtitle {
+    font-size: clamp(12px, 2.5vw, 16px);
+    color: #aab;
+    margin-bottom: 28px;
+    text-shadow: 1px 1px 0 #000;
+  }
+  .diff-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(100px, 160px));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  @media (max-width: 520px) {
+    .diff-grid { grid-template-columns: repeat(2, minmax(120px, 1fr)); width: min(360px, 92vw); }
+  }
+  .diff-btn {
+    border: 2px solid #445;
+    background: #12122a;
+    color: #fff;
+    border-radius: 10px;
+    padding: 14px 10px;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 800;
+    transition: transform .12s, box-shadow .12s, border-color .12s;
+    text-align: center;
+  }
+  .diff-btn:hover { transform: translateY(-2px); }
+  .diff-btn.selected {
+    border-color: currentColor;
+    box-shadow: 0 0 18px currentColor;
+    transform: scale(1.04);
+  }
+  .diff-btn .face { font-size: 28px; line-height: 1.2; display: block; }
+  .diff-btn .name { font-size: 13px; margin-top: 4px; }
+  .diff-btn .stars { font-size: 11px; opacity: .85; margin-top: 2px; }
+  .diff-btn[data-d="0"] { color: #4af; }
+  .diff-btn[data-d="1"] { color: #4d8; }
+  .diff-btn[data-d="2"] { color: #fa4; }
+  .diff-btn[data-d="3"] { color: #f44; }
+  .diff-btn[data-d="4"] { color: #a4f; }
+  .diff-btn[data-d="5"] { color: #c22; }
+  .start-btn, .restart-btn {
+    margin-top: 8px;
+    padding: 14px 36px;
+    font-size: 18px;
+    font-weight: 900;
+    font-family: inherit;
+    border: 2px solid var(--cyan);
+    background: linear-gradient(180deg, #0a3a4a, #061820);
+    color: #fff;
+    border-radius: 8px;
+    cursor: pointer;
+    text-shadow: 2px 2px 0 #000;
+    box-shadow: 0 0 20px rgba(0,240,255,.35);
+  }
+  .start-btn:hover, .restart-btn:hover { box-shadow: 0 0 28px rgba(0,240,255,.6); }
+  .hint {
+    margin-top: 18px;
+    font-size: 12px;
+    color: #889;
+    text-align: center;
+    line-height: 1.6;
+    max-width: 480px;
+  }
+  #hud {
+    position: absolute; top: 0; left: 0; right: 0;
+    pointer-events: none;
+    z-index: 5;
+    padding: 10px 14px;
+    display: flex; justify-content: space-between; align-items: flex-start;
+    font-weight: 800;
+    text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
+  }
+  #hud.hidden { display: none; }
+  .hud-left, .hud-right { display: flex; flex-direction: column; gap: 4px; }
+  .hud-right { text-align: right; align-items: flex-end; }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: rgba(0,0,0,.45);
+    border: 1px solid rgba(255,255,255,.15);
+    font-size: 12px;
+  }
+  #deathTitle {
+    font-size: clamp(36px, 10vw, 72px);
+    font-weight: 900;
+    color: #ff3355;
+    text-shadow: 0 0 20px #ff2244, 3px 3px 0 #000;
+    margin-bottom: 12px;
+  }
+  #deathScore { font-size: 20px; margin-bottom: 8px; }
+  #deathCoins { font-size: 14px; color: #ffd700; margin-bottom: 20px; }
+  #pauseOverlay { background: rgba(5,5,20,0.7); }
+  #pauseOverlay h2 {
+    font-size: 48px;
+    text-shadow: 0 0 16px var(--cyan), 3px 3px 0 #000;
+  }
+  .vol-row {
+    margin-top: 14px;
+    display: flex; align-items: center; gap: 10px;
+    font-size: 13px; color: #9ab;
+  }
+  .vol-row input[type=range] { width: 140px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game"></canvas>
+
+  <div id="menu" class="overlay">
+    <div class="title">NEON DASH</div>
+    <div class="subtitle">Geometry Dash–style autoplay · single-file demo</div>
+    <div class="diff-grid" id="diffGrid"></div>
+    <button class="start-btn" id="startBtn">START RUN</button>
+    <div class="vol-row">
+      <span>Volume</span>
+      <input type="range" id="volSlider" min="0" max="100" value="55" />
+    </div>
+    <div class="hint">
+      Space / Click / Touch = Jump · A = Toggle AI · R = Restart · D = Cycle difficulty<br/>
+      M = Mute · F = FPS · S = Seed · Esc = Pause · AI is ON by default
+    </div>
+  </div>
+
+  <div id="death" class="overlay hidden">
+    <div id="deathTitle">GAME OVER</div>
+    <div id="deathScore">0 m</div>
+    <div id="deathCoins">Coins: 0</div>
+    <button class="restart-btn" id="restartBtn">TRY AGAIN (R)</button>
+    <div class="hint">Press R or click to restart · Esc returns to menu</div>
+  </div>
+
+  <div id="pauseOverlay" class="overlay hidden">
+    <h2>PAUSED</h2>
+    <div class="hint">Press Esc to resume</div>
+  </div>
+
+  <div id="hud" class="hidden">
+    <div class="hud-left">
+      <div id="scoreHud" class="badge">0 m</div>
+      <div id="attemptHud" class="badge">Attempt 1</div>
+      <div id="modeHud" class="badge">CUBE</div>
+      <div id="seedHud" class="badge">Seed: 0</div>
+    </div>
+    <div class="hud-right">
+      <div id="diffHud" class="badge">Normal ★★★</div>
+      <div id="aiHud" class="badge">AI: ON</div>
+      <div id="coinHud" class="badge">Coins: 0/3</div>
+      <div id="fpsHud" class="badge" style="display:none">60 FPS</div>
+      <div id="beatHud" class="badge">♪</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+"use strict";
+
+/* ============================================================
+   NEON DASH — Geometry Dash–style autoplay (single file)
+   ============================================================ */
+
+const DIFFS = [
+  { id:0, name:"Easy", stars:"★☆", face:"😊", color:"#4af",
+    speed:280, dens:0.35, gap:1.4, aiRange:520, fake:0, invis:0, dual:0, modeEvery:14, scroll:1.0, bpm:100 },
+  { id:1, name:"Normal", stars:"★★★", face:"😌", color:"#4d8",
+    speed:320, dens:0.55, gap:1.0, aiRange:440, fake:0.05, invis:0, dual:0.05, modeEvery:10, scroll:1.15, bpm:118 },
+  { id:2, name:"Hard", stars:"★★★★★", face:"😟", color:"#fa4",
+    speed:380, dens:0.75, gap:0.75, aiRange:380, fake:0.12, invis:0.08, dual:0.1, modeEvery:7, scroll:1.35, bpm:132 },
+  { id:3, name:"Harder", stars:"★★★★★★★", face:"😨", color:"#f44",
+    speed:440, dens:0.9, gap:0.55, aiRange:320, fake:0.2, invis:0.15, dual:0.25, modeEvery:4, scroll:1.55, bpm:145 },
+  { id:4, name:"Insane", stars:"★★★★★★★★★", face:"😡", color:"#a4f",
+    speed:520, dens:1.1, gap:0.4, aiRange:280, fake:0.28, invis:0.22, dual:0.35, modeEvery:3, scroll:1.8, bpm:160 },
+  { id:5, name:"Extreme Demon", stars:"★★★★★★★★★★", face:"😈", color:"#c22",
+    speed:600, dens:1.35, gap:0.28, aiRange:220, fake:0.35, invis:0.3, dual:0.5, modeEvery:2, scroll:2.1, bpm:175 },
+];
+
+const MODES = {
+  cube:   { name:"CUBE",   color:"#00f0ff", shape:"cube" },
+  ship:   { name:"SHIP",   color:"#a8ff00", shape:"ship" },
+  ufo:    { name:"UFO",    color:"#ff8800", shape:"ufo" },
+  wave:   { name:"WAVE",   color:"#ff66cc", shape:"wave" },
+  ball:   { name:"BALL",   color:"#ff2244", shape:"ball" },
+  robot:  { name:"ROBOT",  color:"#aabbcc", shape:"robot" },
+  spider: { name:"SPIDER", color:"#aa44ff", shape:"spider" },
+};
+const MODE_ORDER = ["cube","ship","ufo","wave","ball","robot","spider"];
+const PORTAL_COLORS = {
+  cube:"#4488ff", ship:"#44ff66", ufo:"#ff8800", wave:"#ff66cc",
+  ball:"#ff2244", robot:"#8899aa", spider:"#aa44ff",
+  gravity:"#00ffff", sizeMini:"#ffcc00", sizeNormal:"#ffffff",
+  speedFast:"#44ff44", speedSlow:"#ff4444", speedNorm:"#ffff44",
+  mirror:"#66aaff", dual:"#ff88ff"
+};
+
+const GROUND_Y = 420;
+const CEIL_Y = 80;
+const PLAYER_SIZE = 32;
+const GRAVITY = 2200;
+const JUMP_V = -720;
+const DOUBLE_JUMP_V = -640;
+
+/* ---------- seeded RNG ---------- */
+function mulberry32(a) {
+  return function() {
+    let t = a += 0x6D2B79F5;
+    t = Math.imul(t ^ t >>> 15, t | 1);
+    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function hashSeed(s) {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+
+/* ---------- DOM ---------- */
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const menuEl = document.getElementById("menu");
+const deathEl = document.getElementById("death");
+const pauseEl = document.getElementById("pauseOverlay");
+const hudEl = document.getElementById("hud");
+const diffGrid = document.getElementById("diffGrid");
+
+let W = 960, H = 540, dpr = 1;
+function resize() {
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = Math.floor(W * dpr);
+  canvas.height = Math.floor(H * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+window.addEventListener("resize", resize);
+resize();
+
+/* World Y mapping: design space ~540 tall, ground at 420 */
+function worldScale() {
+  return H / 540;
+}
+
+/* ---------- Audio ---------- */
+const AudioSys = {
+  ctx: null,
+  master: null,
+  muted: false,
+  volume: 0.55,
+  beat: 0,
+  nextNote: 0,
+  musicOn: true,
+  init() {
+    if (this.ctx) return;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    this.ctx = new AC();
+    this.master = this.ctx.createGain();
+    this.master.gain.value = this.volume;
+    this.master.connect(this.ctx.destination);
+  },
+  resume() { this.init(); if (this.ctx.state === "suspended") this.ctx.resume(); },
+  setVol(v) {
+    this.volume = v;
+    if (this.master) this.master.gain.value = this.muted ? 0 : v;
+  },
+  toggleMute() {
+    this.muted = !this.muted;
+    if (this.master) this.master.gain.value = this.muted ? 0 : this.volume;
+  },
+  tone(freq, dur, type="square", vol=0.08, slide=0) {
+    if (!this.ctx || this.muted) return;
+    const t = this.ctx.currentTime;
+    const o = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(20, freq + slide), t + dur);
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.connect(g); g.connect(this.master);
+    o.start(t); o.stop(t + dur + 0.02);
+  },
+  noise(dur, vol=0.06) {
+    if (!this.ctx || this.muted) return;
+    const t = this.ctx.currentTime;
+    const n = this.ctx.createBuffer(1, this.ctx.sampleRate * dur, this.ctx.sampleRate);
+    const d = n.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    const s = this.ctx.createBufferSource();
+    s.buffer = n;
+    const g = this.ctx.createGain();
+    const f = this.ctx.createBiquadFilter();
+    f.type = "lowpass"; f.frequency.value = 800;
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    s.connect(f); f.connect(g); g.connect(this.master);
+    s.start(t); s.stop(t + dur);
+  },
+  jump(mode) {
+    const map = {
+      cube:()=>this.tone(520,0.08,"square",0.07,200),
+      ship:()=>this.tone(180,0.15,"sawtooth",0.05,400),
+      ufo:()=>this.tone(300,0.1,"triangle",0.06,100),
+      wave:()=>this.tone(440,0.12,"sine",0.06,-200),
+      ball:()=>this.tone(220,0.14,"triangle",0.08,300),
+      robot:()=>{ this.tone(150,0.06,"square",0.06); this.tone(90,0.1,"sawtooth",0.04); },
+      spider:()=>this.tone(900,0.05,"square",0.05,-600),
+    };
+    (map[mode]||map.cube)();
+  },
+  portal() { this.tone(200,0.2,"sawtooth",0.06,600); },
+  orb() { this.tone(880,0.1,"sine",0.07,400); this.tone(1320,0.08,"sine",0.04); },
+  pad() { this.tone(160,0.18,"triangle",0.08,500); },
+  death() { this.noise(0.35,0.12); this.tone(80,0.4,"sawtooth",0.1,-60); },
+  coin() { this.tone(988,0.08,"sine",0.07); this.tone(1318,0.12,"sine",0.05); },
+  gravity() { this.tone(600,0.25,"sawtooth",0.05,-400); },
+  speed() { this.tone(120,0.2,"sawtooth",0.06,200); },
+  tickMusic(now, bpm, intensity) {
+    if (!this.ctx || this.muted || !this.musicOn) return;
+    const beatDur = 60 / bpm;
+    if (now < this.nextNote) return;
+    const step = this.beat % 8;
+    // kick
+    if (step % 2 === 0) this.tone(60 + intensity*10, 0.08, "sine", 0.09 + intensity*0.02, -40);
+    // snare
+    if (step === 2 || step === 6) this.noise(0.06, 0.04 + intensity*0.02);
+    // hihat
+    this.tone(6000 + intensity*800, 0.02, "square", 0.015 + intensity*0.01);
+    // bass melody
+    if (step === 0 || step === 4) {
+      const notes = [110, 130, 146, 164, 98];
+      this.tone(notes[(this.beat + Math.floor(intensity*3)) % notes.length], 0.18, "triangle", 0.04 + intensity*0.02);
+    }
+    this.beat++;
+    this.nextNote = now + beatDur / 2;
+  }
+};
+
+/* ---------- Particles ---------- */
+class Particle {
+  constructor(x,y,vx,vy,life,color,size=3) {
+    this.x=x; this.y=y; this.vx=vx; this.vy=vy;
+    this.life=life; this.max=life; this.color=color; this.size=size;
+  }
+  update(dt) {
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+    this.vy += 400 * dt;
+    this.life -= dt;
+  }
+  draw(ctx, camX, camY, sc) {
+    const a = Math.max(0, this.life / this.max);
+    ctx.globalAlpha = a;
+    ctx.fillStyle = this.color;
+    ctx.shadowColor = this.color;
+    ctx.shadowBlur = 8;
+    ctx.fillRect((this.x - camX) * sc, (this.y - camY) * sc, this.size * sc, this.size * sc);
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;
+  }
+}
+
+/* ---------- Game Object factories ---------- */
+function makeSpike(x, y, w, h, side="floor", fake=false, invis=false) {
+  return { type:"spike", x, y, w, h, side, fake, invis, invisT:0, alive:true };
+}
+function makeSaw(x, y, r, rpm=90) {
+  return { type:"saw", x, y, r, rpm, ang:0, alive:true };
+}
+function makePad(x, y, kind="yellow") {
+  return { type:"pad", x, y, w:40, h:10, kind, alive:true };
+}
+function makeOrb(x, y, kind="blue") {
+  return { type:"orb", x, y, r:16, kind, used:false, alive:true };
+}
+function makePortal(x, y, kind, payload=null) {
+  return { type:"portal", x, y, w:28, h:90, kind, payload, used:false, alive:true, glow:0 };
+}
+function makePlatform(x, y, w, h, move=null, crumble=false) {
+  return { type:"platform", x, y, w, h, move, crumble, crumbleT:-1, ox:x, oy:y, alive:true };
+}
+function makeMovingSpike(x, y, w, h, axis="y", amp=60, spd=2) {
+  return { type:"mspike", x, y, w, h, axis, amp, spd, t:0, ox:x, oy:y, alive:true };
+}
+function makeCoin(x, y) {
+  return { type:"coin", x, y, r:10, collected:false, alive:true };
+}
+function makeWell(x, y, r=80, str=600) {
+  return { type:"well", x, y, r, str, alive:true };
+}
+
+/* ---------- Player ---------- */
+function createPlayer() {
+  return {
+    x: 120, y: GROUND_Y - PLAYER_SIZE,
+    vx: 0, vy: 0,
+    w: PLAYER_SIZE, h: PLAYER_SIZE,
+    mode: "cube",
+    grav: 1, // 1 down, -1 up
+    onGround: true,
+    jumps: 0, maxJumps: 2,
+    holding: false,
+    ufoHops: 0,
+    sizeMul: 1,
+    speedMul: 1,
+    mirror: 0,
+    dual: null,
+    trail: [],
+    dead: false,
+    rot: 0,
+    waveDir: -1,
+    orbArmed: false,
+    padCD: 0,
+    portalCD: 0,
+    flash: 0,
+    flashColor: "#fff",
+  };
+}
+
+/* ---------- Level / Chunks ---------- */
+const CHUNK_MIN = 800, CHUNK_MAX = 1200;
+
+function createLevel(seed, diff) {
+  const rng = mulberry32(seed);
+  return {
+    seed, rng, diff,
+    objects: [],
+    coinsTotal: 0,
+    nextX: 400,
+    chunkIdx: 0,
+    difficultyRamp: 0,
+  };
+}
+
+function placeSafeStart(level) {
+  // Flat ground runway
+  for (let i = 0; i < 6; i++) {
+    level.objects.push(makePlatform(i * 100, GROUND_Y, 100, 20));
+  }
+  level.nextX = 600;
+}
+
+function themedChunk(level) {
+  const d = level.diff;
+  const ramp = Math.min(1, level.chunkIdx / 12);
+  const dens = d.dens * (0.7 + ramp * 0.5);
+  const gapMul = d.gap * (1.1 - ramp * 0.25);
+  const rng = level.rng;
+  const startX = level.nextX;
+  const width = CHUNK_MIN + Math.floor(rng() * (CHUNK_MAX - CHUNK_MIN));
+  const themes = ["calm","stairs","ship","ufo","wave","ball","robot","spider","mixed","boss"];
+  // Force early calm, then introduce modes
+  let theme;
+  if (level.chunkIdx < 1) theme = "calm";
+  else if (level.chunkIdx < 2) theme = "stairs";
+  else {
+    const pool = themes.slice(0, 2 + Math.min(8, Math.floor(level.chunkIdx / 1.5)));
+    theme = pool[Math.floor(rng() * pool.length)];
+  }
+
+  const objs = [];
+  // Floor platforms for whole chunk
+  for (let x = startX; x < startX + width; x += 100) {
+    objs.push(makePlatform(x, GROUND_Y, 104, 20));
+  }
+  // Ceiling for air modes
+  if (["ship","wave","ball","spider","boss","mixed"].includes(theme)) {
+    for (let x = startX; x < startX + width; x += 100) {
+      objs.push(makePlatform(x, CEIL_Y - 20, 104, 20));
+    }
+  }
+
+  const forceMode = {
+    ship:"ship", ufo:"ufo", wave:"wave", ball:"ball", robot:"robot", spider:"spider",
+    stairs:"cube", calm:"cube", mixed:null, boss:null
+  }[theme];
+
+  if (forceMode) {
+    objs.push(makePortal(startX + 40, GROUND_Y - 100, forceMode));
+  }
+
+  // Speed variation mid-chunk on higher diffs
+  if (d.id >= 2 && rng() < 0.4 + ramp * 0.3) {
+    const kinds = ["speedFast","speedSlow","speedNorm"];
+    objs.push(makePortal(startX + width * 0.45, GROUND_Y - 100, kinds[Math.floor(rng()*kinds.length)]));
+  }
+  if (d.id >= 3 && rng() < d.dual) {
+    objs.push(makePortal(startX + width * 0.2, GROUND_Y - 100, "dual"));
+  }
+  if (d.id >= 3 && rng() < 0.25) {
+    objs.push(makePortal(startX + width * 0.55, GROUND_Y - 100, "mirror"));
+  }
+  if (rng() < 0.3 + ramp * 0.2) {
+    objs.push(makePortal(startX + width * 0.7, GROUND_Y - 100, "gravity"));
+  }
+  if (d.id >= 2 && rng() < 0.25) {
+    objs.push(makePortal(startX + width * 0.35, GROUND_Y - 100, rng() < 0.5 ? "sizeMini" : "sizeNormal"));
+  }
+
+  // Theme-specific obstacles
+  const spikeEvery = Math.max(50, 140 / dens * gapMul);
+  let x = startX + 160;
+
+  const addSpike = (sx, side="floor", size=28) => {
+    const fake = rng() < d.fake;
+    const invis = rng() < d.invis;
+    const y = side === "floor" ? GROUND_Y - size : CEIL_Y;
+    objs.push(makeSpike(sx, y, size, size, side, fake, invis));
+  };
+
+  if (theme === "calm") {
+    while (x < startX + width - 120) {
+      if (rng() < 0.5 * dens) addSpike(x);
+      if (rng() < 0.25) objs.push(makePad(x + 40, GROUND_Y - 10, rng() < 0.7 ? "yellow" : "red"));
+      if (rng() < 0.2) objs.push(makeOrb(x + 60, GROUND_Y - 90, ["blue","yellow","pink","green"][Math.floor(rng()*4)]));
+      x += spikeEvery * (1.2 + rng());
+    }
+  } else if (theme === "stairs") {
+    let h = 0;
+    while (x < startX + width - 100) {
+      h = Math.min(120, h + 18);
+      objs.push(makePlatform(x, GROUND_Y - h, 60, 12));
+      addSpike(x + 10, "floor", 22);
+      if (rng() < 0.3) objs.push(makeOrb(x + 30, GROUND_Y - h - 50, "yellow"));
+      x += 70 * gapMul + 20;
+    }
+  } else if (theme === "ship") {
+    objs.push(makePortal(startX + 40, GROUND_Y - 100, "ship"));
+    while (x < startX + width - 100) {
+      const gapY = CEIL_Y + 60 + rng() * 180;
+      const gapH = 90 + rng() * 40 * gapMul;
+      // blocks above/below tunnel
+      objs.push(makePlatform(x, CEIL_Y, 50, Math.max(10, gapY - CEIL_Y)));
+      objs.push(makePlatform(x, gapY + gapH, 50, Math.max(10, GROUND_Y - (gapY + gapH))));
+      if (rng() < 0.4) objs.push(makeSaw(x + 25, gapY + gapH / 2, 18 + rng()*10, 60 + rng()*80));
+      x += 90 * gapMul + 40;
+    }
+  } else if (theme === "ufo") {
+    objs.push(makePortal(startX + 40, GROUND_Y - 100, "ufo"));
+    while (x < startX + width - 100) {
+      addSpike(x);
+      addSpike(x + 35);
+      if (rng() < 0.5) objs.push(makeOrb(x + 50, GROUND_Y - 140 - rng()*60, "blue"));
+      if (rng() < 0.3) objs.push(makePad(x + 70, GROUND_Y - 10, "yellow"));
+      x += 100 * gapMul + 30;
+    }
+  } else if (theme === "wave") {
+    objs.push(makePortal(startX + 40, GROUND_Y - 100, "wave"));
+    while (x < startX + width - 80) {
+      const mid = 250 + Math.sin(x * 0.01) * 80;
+      objs.push(makeSpike(x, mid - 40, 22, 22, "ceil"));
+      objs.push(makeSpike(x, mid + 40, 22, 22, "floor"));
+      // reposition as floating
+      objs[objs.length-2].y = mid - 50;
+      objs[objs.length-1].y = mid + 20;
+      x += 55 / dens * gapMul + 20;
+    }
+  } else if (theme === "ball") {
+    objs.push(makePortal(startX + 40, GROUND_Y - 100, "ball"));
+    while (x < startX + width - 100) {
+      addSpike(x, "floor");
+      addSpike(x + 80, "ceil");
+      if (rng() < 0.35) objs.push(makeOrb(x + 40, (CEIL_Y + GROUND_Y) / 2, "green"));
+      x += 110 * gapMul;
+    }
+  } else if (theme === "robot") {
+    objs.push(makePortal(startX + 40, GROUND_Y - 100, "robot"));
+    while (x < startX + width - 100) {
+      const ledge = 60 + rng() * 100;
+      objs.push(makePlatform(x, GROUND_Y - ledge, 70, 14, null, rng() < 0.3 && d.id >= 3));
+      if (rng() < 0.4) addSpike(x + 80);
+      if (rng() < 0.3) objs.push(makeOrb(x + 30, GROUND_Y - ledge - 50, "pink"));
+      x += 130 * gapMul;
+    }
+  } else if (theme === "spider") {
+    objs.push(makePortal(startX + 40, GROUND_Y - 100, "spider"));
+    while (x < startX + width - 80) {
+      if (rng() < 0.55) addSpike(x, "floor");
+      if (rng() < 0.55) addSpike(x, "ceil");
+      if (rng() < 0.2) objs.push(makeMovingSpike(x + 40, GROUND_Y - 40, 24, 24, "y", 50, 2 + rng()*2));
+      x += 70 * gapMul;
+    }
+  } else if (theme === "boss") {
+    // Dense cluster testing many mechanics
+    const modes = MODE_ORDER.slice();
+    for (let i = 0; i < 4; i++) {
+      const m = modes[Math.floor(rng() * modes.length)];
+      objs.push(makePortal(startX + 80 + i * (width/5), GROUND_Y - 100, m));
+      for (let k = 0; k < 3 + dens * 2; k++) {
+        addSpike(startX + 120 + i * (width/5) + k * 40);
+        if (rng() < 0.4) objs.push(makeSaw(startX + 140 + i*(width/5)+k*40, GROUND_Y - 80 - rng()*100, 16+rng()*12, 80+rng()*100));
+      }
+    }
+  } else { // mixed
+    while (x < startX + width - 100) {
+      const roll = rng();
+      if (roll < 0.35) addSpike(x);
+      else if (roll < 0.5) objs.push(makeSaw(x, GROUND_Y - 70 - rng()*80, 16+rng()*14, 70+rng()*90));
+      else if (roll < 0.65) objs.push(makePad(x, GROUND_Y - 10, ["yellow","red","blue"][Math.floor(rng()*3)]));
+      else if (roll < 0.8) objs.push(makeOrb(x, GROUND_Y - 80 - rng()*100, ["blue","green","pink","yellow"][Math.floor(rng()*4)]));
+      else if (roll < 0.9) objs.push(makeMovingSpike(x, GROUND_Y - 50, 22, 22, rng()<0.5?"y":"x", 40+rng()*40, 1.5+rng()*2));
+      else objs.push(makePlatform(x, GROUND_Y - 60 - rng()*80, 60, 12, {axis:"y", amp:40, spd:1.5}, d.id>=3 && rng()<0.25));
+      if (d.id >= 4 && rng() < 0.1) objs.push(makeWell(x + 30, GROUND_Y - 150, 70, 400+rng()*300));
+      x += spikeEvery * (0.8 + rng()*0.6);
+    }
+    // Rapid mode portals
+    if (d.modeEvery < 8) {
+      for (let i = 0; i < Math.floor(width / (d.modeEvery * 80)); i++) {
+        const m = MODE_ORDER[Math.floor(rng() * MODE_ORDER.length)];
+        objs.push(makePortal(startX + 150 + i * d.modeEvery * 80, GROUND_Y - 100, m));
+      }
+    }
+  }
+
+  // Coins in optional dangerous paths (3 per section)
+  for (let i = 0; i < 3; i++) {
+    const cx = startX + width * (0.25 + i * 0.25);
+    const cy = GROUND_Y - 100 - rng() * 120;
+    objs.push(makeCoin(cx, cy));
+    // surround with risk
+    if (rng() < 0.6) addSpike(cx - 20);
+    level.coinsTotal++;
+  }
+
+  // Secret alternate route (high platforms)
+  if (rng() < 0.35) {
+    const sx = startX + width * 0.15;
+    for (let i = 0; i < 5; i++) {
+      objs.push(makePlatform(sx + i * 90, CEIL_Y + 40, 70, 12));
+    }
+  }
+
+  // Validate: ensure at least a passable corridor near ground for cube AI
+  // (heuristic — remove overlapping deadly fake-free spikes that fill entire height)
+  // Soft validation: if dens too high, thin spikes
+  const spikes = objs.filter(o => o.type === "spike" && !o.fake);
+  if (spikes.length > width / 35) {
+    for (let i = spikes.length - 1; i >= 0; i -= 2) {
+      const idx = objs.indexOf(spikes[i]);
+      if (idx >= 0 && rng() < 0.4) objs.splice(idx, 1);
+    }
+  }
+
+  level.objects.push(...objs);
+  level.nextX = startX + width;
+  level.chunkIdx++;
+  return { startX, width, theme };
+}
+
+function ensureChunks(level, playerX) {
+  while (level.nextX < playerX + 2200) {
+    themedChunk(level);
+  }
+  // Cull far behind
+  level.objects = level.objects.filter(o => o.x > playerX - 800 && o.alive !== false);
+}
+
+/* ---------- AI ---------- */
+const AI = {
+  enabled: true,
+  wantJump: false,
+  wantHold: false,
+  trajectory: [],
+  detectBox: { x:0, y:0, w:0, h:0 },
+
+  reset() { this.wantJump = false; this.wantHold = false; this.trajectory = []; },
+
+  think(player, level, dt) {
+    if (!this.enabled || player.dead) { this.wantJump = false; this.wantHold = false; return; }
+    const range = level.diff.aiRange;
+    this.detectBox = { x: player.x, y: CEIL_Y - 20, w: range, h: GROUND_Y - CEIL_Y + 40 };
+
+    const ahead = level.objects.filter(o =>
+      o.x + (o.w || o.r || 0) > player.x &&
+      o.x < player.x + range
+    );
+
+    // Predict trajectory samples
+    this.trajectory = [];
+    let sx = player.x, sy = player.y, svy = player.vy;
+    const sc = player.sizeMul;
+    const pw = player.w * sc, ph = player.h * sc;
+    for (let i = 0; i < 40; i++) {
+      sx += level.diff.speed * player.speedMul * 0.016;
+      // crude gravity
+      if (player.mode === "ship") {
+        svy += (this.wantHold ? -1 : 1) * player.grav * 900 * 0.016;
+      } else if (player.mode === "wave") {
+        svy = player.waveDir * player.grav * 420;
+        sy += svy * 0.016;
+        this.trajectory.push({ x: sx, y: sy });
+        continue;
+      } else {
+        svy += GRAVITY * player.grav * 0.016;
+      }
+      sy += svy * 0.016;
+      // ground clamp
+      if (player.grav > 0 && sy > GROUND_Y - ph) { sy = GROUND_Y - ph; svy = 0; }
+      if (player.grav < 0 && sy < CEIL_Y) { sy = CEIL_Y; svy = 0; }
+      this.trajectory.push({ x: sx, y: sy });
+    }
+
+    this.wantJump = false;
+    this.wantHold = false;
+
+    const hazards = ahead.filter(o =>
+      (o.type === "spike" && !o.fake) ||
+      o.type === "saw" || o.type === "mspike" || o.type === "well"
+    );
+    const pads = ahead.filter(o => o.type === "pad");
+    const orbs = ahead.filter(o => o.type === "orb" && !o.used);
+    const portals = ahead.filter(o => o.type === "portal");
+
+    const nearestHazard = hazards
+      .map(h => ({ h, dist: h.x - player.x }))
+      .filter(x => x.dist > -10)
+      .sort((a,b) => a.dist - b.dist)[0];
+
+    const mode = player.mode;
+
+    if (mode === "cube" || mode === "robot") {
+      if (nearestHazard && nearestHazard.dist < (mode === "robot" ? 140 : 110) * player.speedMul) {
+        // Jump if on ground or have jumps
+        if (player.onGround || player.jumps < player.maxJumps) {
+          this.wantJump = true;
+          this.wantHold = mode === "robot" && nearestHazard.dist < 90;
+        }
+      }
+      // Use pads/orbs
+      for (const p of pads) {
+        if (Math.abs(p.x - player.x) < 50 && Math.abs(p.y - (player.y + ph)) < 40) {
+          this.wantJump = true;
+        }
+      }
+      for (const o of orbs) {
+        if (Math.abs(o.x - (player.x + pw/2)) < 40 && Math.abs(o.y - (player.y + ph/2)) < 50) {
+          this.wantJump = true;
+        }
+      }
+      // Gaps: if no platform under predicted landing
+      const platforms = ahead.filter(o => o.type === "platform");
+      const lookX = player.x + 80 * player.speedMul;
+      const hasFloor = platforms.some(p => lookX >= p.x && lookX <= p.x + p.w && Math.abs(p.y - GROUND_Y) < 5);
+      if (!hasFloor && player.onGround) this.wantJump = true;
+    } else if (mode === "ship") {
+      // Fly to keep mid-band clear of hazards
+      let targetY = (CEIL_Y + GROUND_Y) / 2 - ph / 2;
+      if (nearestHazard) {
+        const hy = nearestHazard.h.y + (nearestHazard.h.h || nearestHazard.h.r || 0) / 2;
+        targetY = hy < player.y ? player.y + 40 : player.y - 40;
+      }
+      // Tunnel centers from platforms
+      const blocks = ahead.filter(o => o.type === "platform" && o.x - player.x < 200 && o.x - player.x > 0);
+      if (blocks.length >= 2) {
+        const sorted = blocks.slice().sort((a,b)=>a.y-b.y);
+        // find gap
+        for (let i = 0; i < sorted.length - 1; i++) {
+          const gap = sorted[i+1].y - (sorted[i].y + sorted[i].h);
+          if (gap > 50) {
+            targetY = sorted[i].y + sorted[i].h + gap / 2 - ph / 2;
+            break;
+          }
+        }
+      }
+      this.wantHold = (player.grav > 0) ? (player.y > targetY) : (player.y < targetY);
+    } else if (mode === "ufo") {
+      if (nearestHazard && nearestHazard.dist < 100 && player.ufoHops < 3) {
+        this.wantJump = true;
+      }
+      // Hop periodically in air sections
+      if (!player.onGround && player.vy * player.grav > 100 && player.ufoHops < 3) {
+        const spikeSoon = hazards.some(h => h.x - player.x < 120 && h.x - player.x > 0);
+        if (spikeSoon) this.wantJump = true;
+      }
+    } else if (mode === "wave") {
+      // Flip when about to hit hazard or boundary
+      const predY = player.y + player.waveDir * player.grav * 30;
+      let danger = predY < CEIL_Y + 10 || predY > GROUND_Y - ph - 10;
+      if (nearestHazard && nearestHazard.dist < 90) {
+        const hy = nearestHazard.h.y;
+        if ((player.waveDir * player.grav < 0 && hy < player.y) ||
+            (player.waveDir * player.grav > 0 && hy > player.y)) {
+          danger = true;
+        }
+      }
+      // Check spikes along wave path
+      for (const h of hazards) {
+        if (h.x - player.x > 0 && h.x - player.x < 70) {
+          const wy = player.y + player.waveDir * player.grav * ((h.x - player.x) / Math.max(1, level.diff.speed * player.speedMul) * 420);
+          if (Math.abs(wy - h.y) < 40) danger = true;
+        }
+      }
+      if (danger) this.wantJump = true; // flip
+    } else if (mode === "ball") {
+      if (nearestHazard && nearestHazard.dist < 90) {
+        const onDangerSurface = (player.grav > 0 && nearestHazard.h.side !== "ceil") ||
+          (player.grav < 0 && nearestHazard.h.side === "ceil") ||
+          nearestHazard.h.type === "saw";
+        if (onDangerSurface || player.onGround) this.wantJump = true;
+      }
+    } else if (mode === "spider") {
+      if (nearestHazard && nearestHazard.dist < 70) {
+        const floorDanger = nearestHazard.h.side !== "ceil" && player.grav > 0;
+        const ceilDanger = nearestHazard.h.side === "ceil" && player.grav < 0;
+        // teleport if current surface threatened
+        if (floorDanger || ceilDanger || nearestHazard.h.type === "saw" || nearestHazard.h.type === "mspike") {
+          this.wantJump = true;
+        }
+      }
+    }
+
+    // Always try to grab nearby coins if safe
+    const coins = ahead.filter(o => o.type === "coin" && !o.collected);
+    for (const c of coins) {
+      if (Math.abs(c.x - player.x) < 60 && Math.abs(c.y - (player.y+ph/2)) < 50) {
+        if (mode === "ship") this.wantHold = c.y < player.y;
+        else if (player.onGround && c.y < player.y - 20) this.wantJump = true;
+      }
+    }
+  }
+};
+
+/* ---------- Game State ---------- */
+const Game = {
+  state: "MENU", // MENU PLAYING DEAD PAUSED
+  diffIdx: 1,
+  attempt: 1,
+  deaths: 0,
+  score: 0,
+  coins: 0,
+  seed: 0,
+  showSeed: true,
+  showFps: false,
+  fps: 60,
+  player: null,
+  dual: null,
+  level: null,
+  particles: [],
+  camX: 0, camY: 0, camZoom: 1,
+  shake: 0,
+  beatPulse: 0,
+  inputDown: false,
+  inputPressed: false,
+  lastTime: 0,
+  progress: 0,
+  screenFlash: 0,
+  screenFlashColor: "#fff",
+  startX: 0,
+};
+
+function buildDiffUI() {
+  diffGrid.innerHTML = "";
+  DIFFS.forEach((d, i) => {
+    const b = document.createElement("button");
+    b.className = "diff-btn" + (i === Game.diffIdx ? " selected" : "");
+    b.dataset.d = i;
+    b.innerHTML = `<span class="face">${d.face}</span><div class="name">${d.name}</div><div class="stars">${d.stars}</div>`;
+    b.addEventListener("click", () => {
+      Game.diffIdx = i;
+      [...diffGrid.children].forEach(c => c.classList.remove("selected"));
+      b.classList.add("selected");
+    });
+    diffGrid.appendChild(b);
+  });
+}
+buildDiffUI();
+
+function startGame() {
+  AudioSys.resume();
+  const diff = DIFFS[Game.diffIdx];
+  Game.seed = (Date.now() ^ (Math.random() * 1e9)) >>> 0;
+  Game.level = createLevel(Game.seed, diff);
+  placeSafeStart(Game.level);
+  ensureChunks(Game.level, 0);
+  Game.player = createPlayer();
+  Game.player.vx = diff.speed;
+  Game.dual = null;
+  Game.particles = [];
+  Game.camX = 0; Game.camY = 0; Game.camZoom = 1;
+  Game.score = 0; Game.coins = 0;
+  Game.startX = Game.player.x;
+  Game.state = "PLAYING";
+  Game.shake = 0;
+  Game.screenFlash = 0;
+  AI.reset();
+  menuEl.classList.add("hidden");
+  deathEl.classList.add("hidden");
+  pauseEl.classList.add("hidden");
+  hudEl.classList.remove("hidden");
+  updateHud();
+}
+
+function killPlayer(reason) {
+  if (Game.player.dead) return;
+  Game.player.dead = true;
+  Game.deaths++;
+  AudioSys.death();
+  Game.shake = 12 + Game.diffIdx * 3;
+  Game.screenFlash = 0.35;
+  Game.screenFlashColor = "#ff2244";
+  // shatter particles
+  const p = Game.player;
+  const sc = p.sizeMul;
+  const col = MODES[p.mode].color;
+  for (let i = 0; i < 30; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const sp = 100 + Math.random() * 300;
+    Game.particles.push(new Particle(
+      p.x + p.w * sc / 2, p.y + p.h * sc / 2,
+      Math.cos(a)*sp, Math.sin(a)*sp,
+      0.5 + Math.random()*0.5, col, 2 + Math.random()*4
+    ));
+  }
+  setTimeout(() => {
+    Game.state = "DEAD";
+    deathEl.classList.remove("hidden");
+    document.getElementById("deathScore").textContent =
+      Math.floor(Game.score).toLocaleString() + " m";
+    document.getElementById("deathCoins").textContent =
+      `Coins: ${Game.coins} · Attempts: ${Game.attempt} · Deaths: ${Game.deaths}`;
+  }, 400);
+}
+
+function restartRun() {
+  Game.attempt++;
+  startGame();
+}
+
+function updateHud() {
+  const d = DIFFS[Game.diffIdx];
+  document.getElementById("scoreHud").textContent = Math.floor(Game.score).toLocaleString() + " m";
+  document.getElementById("attemptHud").textContent = `Attempt ${Game.attempt} · Deaths ${Game.deaths}`;
+  document.getElementById("modeHud").textContent = MODES[Game.player?.mode || "cube"].name;
+  document.getElementById("modeHud").style.color = MODES[Game.player?.mode || "cube"].color;
+  document.getElementById("seedHud").textContent = `Seed: ${Game.seed}`;
+  document.getElementById("seedHud").style.display = Game.showSeed ? "inline-block" : "none";
+  document.getElementById("diffHud").textContent = `${d.name} ${d.stars}`;
+  document.getElementById("diffHud").style.color = d.color;
+  document.getElementById("aiHud").textContent = `AI: ${AI.enabled ? "ON" : "OFF"} (A)`;
+  document.getElementById("aiHud").style.color = AI.enabled ? "#4f8" : "#f66";
+  document.getElementById("coinHud").textContent = `Coins: ${Game.coins}`;
+  document.getElementById("fpsHud").style.display = Game.showFps ? "inline-block" : "none";
+  document.getElementById("fpsHud").textContent = `${Game.fps} FPS`;
+  document.getElementById("beatHud").style.opacity = 0.5 + Game.beatPulse * 0.5;
+}
+
+/* ---------- Input ---------- */
+function press() {
+  Game.inputDown = true;
+  Game.inputPressed = true;
+  AudioSys.resume();
+  if (Game.state === "MENU") return;
+  if (Game.state === "DEAD") { restartRun(); return; }
+  if (Game.state === "PLAYING" && !AI.enabled) {
+    doAction(Game.player, true);
+    if (Game.dual) doAction(Game.dual, true);
+  }
+}
+function release() {
+  Game.inputDown = false;
+  if (Game.state === "PLAYING") {
+    Game.player.holding = false;
+    if (Game.dual) Game.dual.holding = false;
+  }
+}
+
+canvas.addEventListener("mousedown", e => { e.preventDefault(); press(); });
+window.addEventListener("mouseup", release);
+canvas.addEventListener("touchstart", e => { e.preventDefault(); press(); }, { passive:false });
+window.addEventListener("touchend", e => { e.preventDefault(); release(); }, { passive:false });
+
+window.addEventListener("keydown", e => {
+  if (e.repeat) return;
+  const k = e.key.toLowerCase();
+  if (k === " " || k === "arrowup" || k === "w") { e.preventDefault(); press(); }
+  if (k === "a") {
+    AI.enabled = !AI.enabled;
+    updateHud();
+  }
+  if (k === "r") {
+    if (Game.state === "DEAD" || Game.state === "PLAYING") restartRun();
+  }
+  if (k === "d" && Game.state === "MENU") {
+    Game.diffIdx = (Game.diffIdx + 1) % DIFFS.length;
+    buildDiffUI();
+  }
+  if (k === "f") { Game.showFps = !Game.showFps; updateHud(); }
+  if (k === "m") { AudioSys.toggleMute(); }
+  if (k === "s") { Game.showSeed = !Game.showSeed; updateHud(); }
+  if (k === "escape") {
+    if (Game.state === "PLAYING") {
+      Game.state = "PAUSED";
+      pauseEl.classList.remove("hidden");
+    } else if (Game.state === "PAUSED") {
+      Game.state = "PLAYING";
+      pauseEl.classList.add("hidden");
+    } else if (Game.state === "DEAD") {
+      Game.state = "MENU";
+      deathEl.classList.add("hidden");
+      menuEl.classList.remove("hidden");
+      hudEl.classList.add("hidden");
+    }
+  }
+  if (k === "+" || k === "=") {
+    AudioSys.setVol(Math.min(1, AudioSys.volume + 0.05));
+    document.getElementById("volSlider").value = Math.round(AudioSys.volume * 100);
+  }
+  if (k === "-" || k === "_") {
+    AudioSys.setVol(Math.max(0, AudioSys.volume - 0.05));
+    document.getElementById("volSlider").value = Math.round(AudioSys.volume * 100);
+  }
+});
+window.addEventListener("keyup", e => {
+  const k = e.key.toLowerCase();
+  if (k === " " || k === "arrowup" || k === "w") release();
+});
+
+document.getElementById("startBtn").addEventListener("click", startGame);
+document.getElementById("restartBtn").addEventListener("click", restartRun);
+document.getElementById("volSlider").addEventListener("input", e => {
+  AudioSys.setVol(+e.target.value / 100);
+});
+
+/* ---------- Actions / Physics ---------- */
+function doAction(p, isPress) {
+  if (!p || p.dead) return;
+  if (p.portalCD > 0) return;
+
+  if (p.mode === "cube") {
+    if (isPress && (p.onGround || p.jumps < p.maxJumps)) {
+      p.vy = (p.jumps === 0 ? JUMP_V : DOUBLE_JUMP_V) * p.grav;
+      p.onGround = false;
+      p.jumps++;
+      p.holding = true;
+      AudioSys.jump("cube");
+      burst(p, MODES.cube.color);
+    }
+  } else if (p.mode === "ship") {
+    p.holding = isPress;
+    if (isPress) AudioSys.jump("ship");
+  } else if (p.mode === "ufo") {
+    if (isPress && p.ufoHops < 3) {
+      p.vy = -520 * p.grav;
+      p.ufoHops++;
+      p.onGround = false;
+      AudioSys.jump("ufo");
+      burst(p, MODES.ufo.color);
+    }
+  } else if (p.mode === "wave") {
+    if (isPress) {
+      p.waveDir *= -1;
+      AudioSys.jump("wave");
+    }
+  } else if (p.mode === "ball") {
+    if (isPress) {
+      p.grav *= -1;
+      p.vy = -200 * p.grav;
+      p.onGround = false;
+      AudioSys.jump("ball");
+      AudioSys.gravity();
+      burst(p, MODES.ball.color);
+    }
+  } else if (p.mode === "robot") {
+    if (isPress && (p.onGround || p.jumps < 1)) {
+      p.vy = -820 * p.grav;
+      p.onGround = false;
+      p.jumps++;
+      p.holding = true;
+      AudioSys.jump("robot");
+      burst(p, MODES.robot.color);
+    }
+  } else if (p.mode === "spider") {
+    if (isPress) {
+      // teleport floor <-> ceiling
+      const sc = p.sizeMul;
+      if (p.grav > 0) {
+        p.y = CEIL_Y;
+        p.grav = -1;
+      } else {
+        p.y = GROUND_Y - p.h * sc;
+        p.grav = 1;
+      }
+      p.vy = 0;
+      p.onGround = true;
+      p.jumps = 0;
+      AudioSys.jump("spider");
+      burst(p, MODES.spider.color);
+      Game.screenFlash = 0.08;
+      Game.screenFlashColor = MODES.spider.color;
+    }
+  }
+}
+
+function burst(p, color) {
+  const sc = p.sizeMul;
+  for (let i = 0; i < 8; i++) {
+    Game.particles.push(new Particle(
+      p.x + p.w*sc/2, p.y + p.h*sc/2,
+      (Math.random()-0.5)*200, (Math.random()-0.5)*200,
+      0.3, color, 3
+    ));
+  }
+}
+
+function applyPortal(p, portal) {
+  if (portal.used && ["cube","ship","ufo","wave","ball","robot","spider"].includes(portal.kind)) {
+    // mode portals can re-trigger for same player once CD passed — allow reuse by others
+  }
+  const kind = portal.kind;
+  Game.screenFlash = 0.15;
+  Game.screenFlashColor = PORTAL_COLORS[kind] || "#fff";
+  p.flash = 0.2;
+  p.flashColor = PORTAL_COLORS[kind] || "#fff";
+  AudioSys.portal();
+
+  if (MODE_ORDER.includes(kind)) {
+    p.mode = kind;
+    p.jumps = 0;
+    p.ufoHops = 0;
+    p.waveDir = -1;
+    if (kind === "cube") p.maxJumps = 2;
+    else if (kind === "robot") p.maxJumps = 1;
+    else p.maxJumps = 0;
+    // swirl particles
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * Math.PI * 2;
+      Game.particles.push(new Particle(
+        portal.x + 14, portal.y + 45,
+        Math.cos(a)*120, Math.sin(a)*120,
+        0.5, PORTAL_COLORS[kind], 3
+      ));
+    }
+  } else if (kind === "gravity") {
+    p.grav *= -1;
+    AudioSys.gravity();
+  } else if (kind === "sizeMini") {
+    p.sizeMul = 0.5;
+  } else if (kind === "sizeNormal") {
+    p.sizeMul = 1;
+  } else if (kind === "speedFast") {
+    p.speedMul = 1.5;
+    AudioSys.speed();
+  } else if (kind === "speedSlow") {
+    p.speedMul = 0.5;
+    AudioSys.speed();
+  } else if (kind === "speedNorm") {
+    p.speedMul = 1;
+    AudioSys.speed();
+  } else if (kind === "mirror") {
+    p.mirror = 3.5; // seconds
+  } else if (kind === "dual") {
+    if (!Game.dual) {
+      Game.dual = Object.assign(createPlayer(), {
+        x: p.x, y: Math.min(GROUND_Y - PLAYER_SIZE, Math.max(CEIL_Y, p.y - 100)),
+        mode: p.mode, speedMul: p.speedMul, sizeMul: p.sizeMul,
+        grav: -p.grav, vx: p.vx
+      });
+    }
+  }
+  p.portalCD = 0.35;
+  updateHud();
+}
+
+function applyOrb(p, orb) {
+  if (orb.used) return;
+  orb.used = true;
+  AudioSys.orb();
+  burst(p, "#fff");
+  if (orb.kind === "blue") {
+    p.vy = JUMP_V * p.grav;
+    p.onGround = false;
+    p.jumps = 1;
+  } else if (orb.kind === "green") {
+    p.grav *= -1;
+    p.vy = -300 * p.grav;
+    AudioSys.gravity();
+  } else if (orb.kind === "pink") {
+    p.vy = -980 * p.grav;
+    p.onGround = false;
+  } else if (orb.kind === "yellow") {
+    p.vy = -480 * p.grav;
+    p.onGround = false;
+  }
+}
+
+function applyPad(p, pad) {
+  if (p.padCD > 0) return;
+  AudioSys.pad();
+  p.padCD = 0.2;
+  p.onGround = false;
+  if (pad.kind === "yellow") p.vy = -900 * p.grav;
+  else if (pad.kind === "red") p.vy = -1250 * p.grav;
+  else if (pad.kind === "blue") {
+    p.grav *= -1;
+    p.vy = -700 * p.grav;
+    // temporary anti-grav feel
+    setTimeout(() => { if (!p.dead) p.grav *= -1; }, 1200);
+  }
+  burst(p, pad.kind === "red" ? "#f44" : pad.kind === "blue" ? "#4af" : "#ff0");
+}
+
+function aabb(ax,ay,aw,ah,bx,by,bw,bh) {
+  return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+}
+
+function circleRect(cx,cy,r, rx,ry,rw,rh) {
+  const nx = Math.max(rx, Math.min(cx, rx + rw));
+  const ny = Math.max(ry, Math.min(cy, ry + rh));
+  const dx = cx - nx, dy = cy - ny;
+  return dx*dx + dy*dy < r*r;
+}
+
+function updatePlayer(p, dt, isDual) {
+  if (!p || p.dead) return;
+  const diff = Game.level.diff;
+  const baseSpeed = diff.speed * diff.scroll;
+  p.vx = baseSpeed * p.speedMul * (p.mirror > 0 ? -1 : 1);
+  // For mirror we still scroll world positive — visual flip handled in camera; keep moving right in world
+  if (p.mirror > 0) {
+    p.mirror -= dt;
+    p.vx = baseSpeed * p.speedMul;
+  }
+
+  p.x += Math.abs(p.vx) * dt;
+  p.padCD = Math.max(0, p.padCD - dt);
+  p.portalCD = Math.max(0, p.portalCD - dt);
+  p.flash = Math.max(0, p.flash - dt);
+
+  const sc = p.sizeMul;
+  const pw = p.w * sc, ph = p.h * sc;
+
+  // Mode physics
+  if (p.mode === "ship") {
+    const thrust = p.holding ? -1 : 1;
+    p.vy += thrust * p.grav * 1400 * dt;
+    p.vy *= (1 - 1.5 * dt);
+    p.y += p.vy * dt;
+    p.onGround = false;
+    p.rot = Math.atan2(p.vy, 400) * p.grav;
+  } else if (p.mode === "wave") {
+    p.vy = p.waveDir * p.grav * 480;
+    p.y += p.vy * dt;
+    p.onGround = false;
+    p.rot += 8 * dt;
+  } else if (p.mode === "ball") {
+    p.vy += GRAVITY * p.grav * dt;
+    p.y += p.vy * dt;
+    p.rot += p.vx * dt * 0.05;
+  } else if (p.mode === "ufo") {
+    p.vy += GRAVITY * 0.7 * p.grav * dt;
+    p.y += p.vy * dt;
+  } else if (p.mode === "robot") {
+    let g = GRAVITY * 0.85;
+    if (p.holding && p.vy * p.grav < 0) g *= 0.55; // variable height
+    p.vy += g * p.grav * dt;
+    p.y += p.vy * dt;
+    if (p.onGround) p.rot = 0;
+    else p.rot += 6 * dt * p.grav;
+  } else if (p.mode === "spider") {
+    // stuck to surface until teleport
+    if (!p.onGround) {
+      p.vy += GRAVITY * p.grav * dt;
+      p.y += p.vy * dt;
+    }
+  } else { // cube
+    p.vy += GRAVITY * p.grav * dt;
+    p.y += p.vy * dt;
+    if (p.onGround) p.rot = Math.round(p.rot / (Math.PI/2)) * (Math.PI/2);
+    else p.rot += 8 * dt * p.grav;
+  }
+
+  // Ground / ceiling collision with platforms
+  p.onGround = false;
+  const platforms = Game.level.objects.filter(o => o.type === "platform" && o.alive !== false);
+
+  for (const plat of platforms) {
+    if (plat.crumbleT >= 0) {
+      plat.crumbleT += dt;
+      if (plat.crumbleT > 0.35) { plat.alive = false; continue; }
+    }
+    if (plat.move) {
+      plat.t = (plat.t || 0) + dt * plat.move.spd;
+      if (plat.move.axis === "y") plat.y = plat.oy + Math.sin(plat.t) * plat.move.amp;
+      else plat.x = plat.ox + Math.sin(plat.t) * plat.move.amp;
+    }
+
+    if (!aabb(p.x, p.y, pw, ph, plat.x, plat.y, plat.w, plat.h)) continue;
+
+    if (p.grav > 0 && p.vy >= 0 && p.y + ph - p.vy * dt <= plat.y + 8) {
+      p.y = plat.y - ph;
+      p.vy = 0;
+      p.onGround = true;
+      p.jumps = 0;
+      p.ufoHops = 0;
+      if (plat.crumble && plat.crumbleT < 0) plat.crumbleT = 0;
+      // ball auto gravity flip on ground
+      if (p.mode === "ball" && !isDual) {
+        // auto flip once grounded briefly handled via contact — only if moving into surface hard
+      }
+    } else if (p.grav < 0 && p.vy <= 0 && p.y - p.vy * dt >= plat.y + plat.h - 8) {
+      p.y = plat.y + plat.h;
+      p.vy = 0;
+      p.onGround = true;
+      p.jumps = 0;
+      p.ufoHops = 0;
+      if (plat.crumble && plat.crumbleT < 0) plat.crumbleT = 0;
+    } else if (p.mode === "wave" || p.mode === "ship") {
+      // hitting solid = death for wave/ship
+      if (plat.y < GROUND_Y - 5 && plat.y > CEIL_Y) {
+        // mid platforms are solid hazards for fly modes if overlapping heavily
+        if (aabb(p.x + 4, p.y + 4, pw - 8, ph - 8, plat.x, plat.y, plat.w, plat.h)) {
+          if (Math.abs(plat.y - GROUND_Y) > 5 && Math.abs(plat.y - (CEIL_Y - 20)) > 5) {
+            killPlayer("wall");
+            return;
+          }
+        }
+      }
+    }
+  }
+
+  // World bounds floor/ceil fallback
+  if (p.y + ph > GROUND_Y + 40 || p.y < CEIL_Y - 60) {
+    killPlayer("bounds");
+    return;
+  }
+  // Soft clamp to main ground/ceil if no platform
+  if (p.y + ph > GROUND_Y && p.grav > 0) {
+    p.y = GROUND_Y - ph;
+    p.vy = 0;
+    p.onGround = true;
+    p.jumps = 0;
+    p.ufoHops = 0;
+    if (p.mode === "ball") {
+      p.grav = -1;
+      p.onGround = false;
+      p.vy = -100;
+      AudioSys.jump("ball");
+    }
+  }
+  if (p.y < CEIL_Y && p.grav < 0) {
+    p.y = CEIL_Y;
+    p.vy = 0;
+    p.onGround = true;
+    p.jumps = 0;
+    if (p.mode === "ball") {
+      p.grav = 1;
+      p.onGround = false;
+      p.vy = 100;
+      AudioSys.jump("ball");
+    }
+  }
+  if (p.mode === "ship" || p.mode === "wave" || p.mode === "ufo") {
+    if (p.y < CEIL_Y) { p.y = CEIL_Y; p.vy = Math.max(0, p.vy); if (p.mode === "wave") killPlayer("ceil"); }
+    if (p.y + ph > GROUND_Y) { p.y = GROUND_Y - ph; p.vy = Math.min(0, p.vy); if (p.mode === "wave") killPlayer("floor"); }
+  }
+
+  // Trail
+  p.trail.push({ x: p.x, y: p.y + ph/2, t: 0.35, c: MODES[p.mode].color });
+  if (p.trail.length > 24) p.trail.shift();
+  for (const t of p.trail) t.t -= dt;
+
+  // Collisions with objects
+  for (const o of Game.level.objects) {
+    if (!o.alive) continue;
+
+    if (o.type === "spike") {
+      if (o.invis) {
+        o.invisT += dt;
+        if (Math.sin(o.invisT * 3) < 0) continue; // faded out — no collision? Actually still collide when visible enough
+        if (Math.sin(o.invisT * 3) < -0.2) continue;
+      }
+      if (o.fake) continue;
+      if (aabb(p.x + 4, p.y + 4, pw - 8, ph - 8, o.x + 2, o.y + 2, o.w - 4, o.h - 4)) {
+        killPlayer("spike");
+        return;
+      }
+    } else if (o.type === "mspike") {
+      o.t += dt * o.spd;
+      if (o.axis === "y") o.y = o.oy + Math.sin(o.t) * o.amp;
+      else o.x = o.ox + Math.sin(o.t) * o.amp;
+      if (aabb(p.x + 4, p.y + 4, pw - 8, ph - 8, o.x, o.y, o.w, o.h)) {
+        killPlayer("mspike");
+        return;
+      }
+    } else if (o.type === "saw") {
+      o.ang += (o.rpm / 60) * Math.PI * 2 * dt;
+      if (circleRect(o.x, o.y, o.r * 0.85, p.x + 2, p.y + 2, pw - 4, ph - 4)) {
+        killPlayer("saw");
+        return;
+      }
+    } else if (o.type === "pad") {
+      if (aabb(p.x, p.y, pw, ph, o.x, o.y - 8, o.w, o.h + 16)) applyPad(p, o);
+    } else if (o.type === "orb") {
+      if (!o.used && circleRect(o.x, o.y, o.r, p.x, p.y, pw, ph)) {
+        // require input or AI jump intent near orb
+        if (Game.inputDown || AI.wantJump || AI.enabled) applyOrb(p, o);
+      }
+    } else if (o.type === "portal") {
+      o.glow += dt * 4;
+      if (p.portalCD <= 0 && aabb(p.x, p.y, pw, ph, o.x, o.y, o.w, o.h)) {
+        applyPortal(p, o);
+      }
+    } else if (o.type === "coin") {
+      if (!o.collected && circleRect(o.x, o.y, o.r, p.x, p.y, pw, ph)) {
+        o.collected = true;
+        Game.coins++;
+        AudioSys.coin();
+        burst(p, "#ffd700");
+        updateHud();
+      }
+    } else if (o.type === "well") {
+      const dx = (o.x - (p.x + pw/2));
+      const dy = (o.y - (p.y + ph/2));
+      const dist = Math.hypot(dx, dy) || 1;
+      if (dist < o.r) {
+        const f = (1 - dist / o.r) * o.str * dt;
+        p.x += (dx / dist) * f * 0.02;
+        p.vy += (dy / dist) * f * 0.15;
+      }
+    }
+  }
+}
+
+/* ---------- Update / Draw ---------- */
+function update(dt) {
+  if (Game.state !== "PLAYING") return;
+  const p = Game.player;
+  const diff = Game.level.diff;
+
+  ensureChunks(Game.level, p.x);
+
+  // AI
+  AI.think(p, Game.level, dt);
+  if (AI.enabled) {
+    if (AI.wantJump && !p._aiLatched) {
+      doAction(p, true);
+      if (Game.dual) doAction(Game.dual, true);
+      p._aiLatched = true;
+    }
+    if (!AI.wantJump) p._aiLatched = false;
+    p.holding = AI.wantHold;
+    if (Game.dual) Game.dual.holding = AI.wantHold;
+    // wave needs edge-trigger only — handled by latch
+  } else {
+    p.holding = Game.inputDown && (p.mode === "ship" || p.mode === "robot");
+  }
+
+  updatePlayer(p, dt, false);
+  if (Game.dual) {
+    Game.dual.x = p.x; // keep synced X for dual challenge
+    updatePlayer(Game.dual, dt, true);
+    // Dual timeout
+    Game.dual._life = (Game.dual._life || 6) - dt;
+    if (Game.dual._life <= 0) Game.dual = null;
+  }
+
+  // Score = distance
+  Game.score = Math.max(0, (p.x - Game.startX) / 10);
+  Game.progress = ((p.x % 1000) / 1000);
+
+  // Camera
+  const sc = worldScale();
+  const targetZoom = (1 / Math.sqrt(p.speedMul)) * (p.sizeMul > 0.7 ? 1 : 1.15);
+  Game.camZoom += (targetZoom - Game.camZoom) * Math.min(1, dt * 3);
+  Game.camX += (p.x - 180 - Game.camX) * Math.min(1, dt * 6);
+  Game.camY += ((p.y - 200) - Game.camY) * Math.min(1, dt * 3);
+  Game.camY = Math.max(-40, Math.min(80, Game.camY));
+
+  Game.shake = Math.max(0, Game.shake - dt * 30);
+  Game.screenFlash = Math.max(0, Game.screenFlash - dt);
+
+  // Particles
+  Game.particles = Game.particles.filter(pt => { pt.update(dt); return pt.life > 0; });
+
+  // Beat
+  const beatDur = 60 / diff.bpm;
+  Game.beatPulse = 0.5 + 0.5 * Math.sin(performance.now() / 1000 * Math.PI * 2 / beatDur);
+  AudioSys.tickMusic(AudioSys.ctx ? AudioSys.ctx.currentTime : 0, diff.bpm, Game.diffIdx / 5);
+
+  updateHud();
+}
+
+function drawBackground(sc) {
+  const t = performance.now() / 1000;
+  // Far stars / grid
+  ctx.fillStyle = "#0a0a1a";
+  ctx.fillRect(0, 0, W, H);
+
+  const cam = Game.camX;
+  // parallax layers
+  ctx.save();
+  // far grid
+  ctx.strokeStyle = "rgba(60,80,140,0.25)";
+  ctx.lineWidth = 1;
+  const gsize = 40 * sc;
+  const ox = -((cam * 0.15 * sc) % gsize);
+  const oy = -((Game.camY * 0.1 * sc) % gsize);
+  ctx.beginPath();
+  for (let x = ox; x < W; x += gsize) { ctx.moveTo(x, 0); ctx.lineTo(x, H); }
+  for (let y = oy; y < H; y += gsize) { ctx.moveTo(0, y); ctx.lineTo(W, y); }
+  ctx.stroke();
+
+  // mid geometric shapes
+  ctx.globalAlpha = 0.15;
+  for (let i = 0; i < 8; i++) {
+    const px = ((i * 220 - cam * 0.35) % (W + 200)) + 100;
+    const py = 80 + (i % 4) * 70;
+    ctx.fillStyle = i % 2 ? "#ff00aa" : "#00f0ff";
+    ctx.fillRect(px, py, 40 * sc, 40 * sc);
+  }
+  ctx.globalAlpha = 1;
+
+  // near decorative blocks
+  ctx.globalAlpha = 0.2;
+  for (let i = 0; i < 6; i++) {
+    const px = ((i * 280 - cam * 0.6) % (W + 300));
+    ctx.fillStyle = "#6688ff";
+    ctx.fillRect(px, H - 100 * sc - (i%3)*30, 50*sc, 30*sc);
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+function wx(x) { return (x - Game.camX) * worldScale() * Game.camZoom + (Game.shake ? (Math.random()-0.5)*Game.shake : 0); }
+function wy(y) { return (y - Game.camY) * worldScale() * Game.camZoom + (H - 540 * worldScale() * Game.camZoom) / 2 + (Game.shake ? (Math.random()-0.5)*Game.shake : 0); }
+function ws(v) { return v * worldScale() * Game.camZoom; }
+
+function drawPlayer(p) {
+  if (!p || p.dead) return;
+  const sc = p.sizeMul;
+  const pw = ws(p.w * sc), ph = ws(p.h * sc);
+  const x = wx(p.x), y = wy(p.y);
+  const col = MODES[p.mode].color;
+
+  // trail
+  for (const t of p.trail) {
+    if (t.t <= 0) continue;
+    ctx.globalAlpha = Math.max(0, t.t) * 0.5;
+    ctx.fillStyle = t.c;
+    ctx.shadowColor = t.c;
+    ctx.shadowBlur = 10;
+    ctx.fillRect(wx(t.x), wy(t.y - 4), ws(8), ws(8));
+  }
+  ctx.globalAlpha = 1;
+  ctx.shadowBlur = 0;
+
+  ctx.save();
+  ctx.translate(x + pw/2, y + ph/2);
+  ctx.rotate(p.rot || 0);
+  ctx.shadowColor = col;
+  ctx.shadowBlur = 18;
+  ctx.fillStyle = col;
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 2;
+
+  if (p.mode === "cube" || p.mode === "robot") {
+    ctx.fillRect(-pw/2, -ph/2, pw, ph);
+    ctx.strokeRect(-pw/2, -ph/2, pw, ph);
+    if (p.mode === "robot") {
+      ctx.fillRect(-3, -ph/2 - ws(10), 6, ws(10));
+      ctx.beginPath(); ctx.arc(0, -ph/2 - ws(12), ws(4), 0, Math.PI*2); ctx.fill();
+    }
+  } else if (p.mode === "ship") {
+    ctx.beginPath();
+    ctx.moveTo(pw/2, 0);
+    ctx.lineTo(-pw/2, -ph/2);
+    ctx.lineTo(-pw/2, ph/2);
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
+  } else if (p.mode === "ufo") {
+    ctx.beginPath();
+    ctx.ellipse(0, 0, pw/2, ph/3, 0, 0, Math.PI*2);
+    ctx.fill(); ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(0, -ph/6, pw/4, Math.PI, 0);
+    ctx.fill();
+  } else if (p.mode === "wave") {
+    ctx.beginPath();
+    ctx.moveTo(-pw/2, ph/2);
+    ctx.lineTo(pw/2, -ph/2);
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = col;
+    ctx.stroke();
+  } else if (p.mode === "ball") {
+    ctx.beginPath();
+    ctx.arc(0, 0, pw/2, 0, Math.PI*2);
+    ctx.fill(); ctx.stroke();
+  } else if (p.mode === "spider") {
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 - Math.PI/2;
+      const rx = Math.cos(a) * pw/2, ry = Math.sin(a) * ph/2;
+      if (i === 0) ctx.moveTo(rx, ry); else ctx.lineTo(rx, ry);
+    }
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
+  }
+
+  if (p.flash > 0) {
+    ctx.globalAlpha = p.flash * 2;
+    ctx.fillStyle = p.flashColor;
+    ctx.fillRect(-pw/2, -ph/2, pw, ph);
+  }
+  ctx.restore();
+  ctx.shadowBlur = 0;
+  ctx.globalAlpha = 1;
+}
+
+function drawObjects() {
+  const p = Game.player;
+  for (const o of Game.level.objects) {
+    if (!o.alive) continue;
+    if (o.x < Game.camX - 100 || o.x > Game.camX + W / worldScale() / Game.camZoom + 100) continue;
+
+    if (o.type === "platform") {
+      const alpha = o.crumbleT >= 0 ? Math.max(0.2, 1 - o.crumbleT / 0.35) : 1;
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = "#2a2a4a";
+      ctx.strokeStyle = "#6af";
+      ctx.lineWidth = 2;
+      ctx.shadowColor = "#4488ff";
+      ctx.shadowBlur = 8 * Game.beatPulse;
+      ctx.fillRect(wx(o.x), wy(o.y), ws(o.w), ws(o.h));
+      ctx.strokeRect(wx(o.x), wy(o.y), ws(o.w), ws(o.h));
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = 1;
+      // ground glow line
+      if (Math.abs(o.y - GROUND_Y) < 3) {
+        ctx.strokeStyle = `rgba(0,240,255,${0.3 + 0.4 * Game.beatPulse})`;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(wx(o.x), wy(o.y));
+        ctx.lineTo(wx(o.x + o.w), wy(o.y));
+        ctx.stroke();
+      }
+    } else if (o.type === "spike") {
+      let alpha = 1;
+      if (o.invis) alpha = 0.5 + 0.5 * Math.sin(o.invisT * 3);
+      if (o.fake) ctx.fillStyle = "#664455";
+      else ctx.fillStyle = "#ff3366";
+      ctx.globalAlpha = alpha;
+      ctx.shadowColor = o.fake ? "#664455" : "#ff2266";
+      ctx.shadowBlur = o.fake ? 4 : 12;
+      ctx.beginPath();
+      const x = wx(o.x), y = wy(o.y), w = ws(o.w), h = ws(o.h);
+      if (o.side === "ceil") {
+        ctx.moveTo(x, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w/2, y + h);
+      } else {
+        ctx.moveTo(x, y + h); ctx.lineTo(x + w, y + h); ctx.lineTo(x + w/2, y);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = 1;
+    } else if (o.type === "mspike") {
+      ctx.fillStyle = "#ff5577";
+      ctx.shadowColor = "#ff5577";
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      const x = wx(o.x), y = wy(o.y), w = ws(o.w), h = ws(o.h);
+      ctx.moveTo(x, y + h); ctx.lineTo(x + w, y + h); ctx.lineTo(x + w/2, y);
+      ctx.closePath(); ctx.fill();
+      // track
+      ctx.strokeStyle = "rgba(255,255,255,0.2)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      if (o.axis === "y") {
+        ctx.moveTo(wx(o.ox + o.w/2), wy(o.oy - o.amp));
+        ctx.lineTo(wx(o.ox + o.w/2), wy(o.oy + o.amp));
+      } else {
+        ctx.moveTo(wx(o.ox - o.amp), wy(o.oy + o.h/2));
+        ctx.lineTo(wx(o.ox + o.amp), wy(o.oy + o.h/2));
+      }
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    } else if (o.type === "saw") {
+      const x = wx(o.x), y = wy(o.y), r = ws(o.r);
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(o.ang);
+      ctx.shadowColor = "#ffaa00";
+      ctx.shadowBlur = 14;
+      ctx.fillStyle = "#ccc";
+      ctx.beginPath();
+      const teeth = 12;
+      for (let i = 0; i < teeth; i++) {
+        const a0 = (i / teeth) * Math.PI * 2;
+        const a1 = ((i + 0.5) / teeth) * Math.PI * 2;
+        const a2 = ((i + 1) / teeth) * Math.PI * 2;
+        ctx.lineTo(Math.cos(a0) * r * 0.7, Math.sin(a0) * r * 0.7);
+        ctx.lineTo(Math.cos(a1) * r, Math.sin(a1) * r);
+        ctx.lineTo(Math.cos(a2) * r * 0.7, Math.sin(a2) * r * 0.7);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#444";
+      ctx.beginPath(); ctx.arc(0, 0, r * 0.35, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+      ctx.shadowBlur = 0;
+    } else if (o.type === "pad") {
+      const colors = { yellow:"#ffee00", red:"#ff2244", blue:"#4488ff" };
+      ctx.fillStyle = colors[o.kind] || "#ff0";
+      ctx.shadowColor = ctx.fillStyle;
+      ctx.shadowBlur = 16;
+      ctx.fillRect(wx(o.x), wy(o.y), ws(o.w), ws(o.h));
+      ctx.shadowBlur = 0;
+    } else if (o.type === "orb") {
+      if (o.used) continue;
+      const colors = { blue:"#44aaff", green:"#44ff66", pink:"#ff66cc", yellow:"#ffee44" };
+      const c = colors[o.kind] || "#fff";
+      ctx.strokeStyle = c;
+      ctx.fillStyle = "rgba(0,0,0,0.3)";
+      ctx.lineWidth = 3;
+      ctx.shadowColor = c;
+      ctx.shadowBlur = 16;
+      ctx.beginPath();
+      ctx.arc(wx(o.x), wy(o.y), ws(o.r), 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(wx(o.x), wy(o.y), ws(o.r * 0.4), 0, Math.PI * 2);
+      ctx.fillStyle = c;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    } else if (o.type === "portal") {
+      const c = PORTAL_COLORS[o.kind] || "#fff";
+      const pulse = 0.7 + 0.3 * Math.sin(o.glow);
+      ctx.save();
+      ctx.shadowColor = c;
+      ctx.shadowBlur = 20 * pulse;
+      // portal oval
+      ctx.strokeStyle = c;
+      ctx.fillStyle = c + "33";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.ellipse(wx(o.x + o.w/2), wy(o.y + o.h/2), ws(o.w/2), ws(o.h/2), 0, 0, Math.PI*2);
+      ctx.fill(); ctx.stroke();
+      // inner swirl
+      ctx.beginPath();
+      for (let i = 0; i < 8; i++) {
+        const a = o.glow + i;
+        ctx.lineTo(
+          wx(o.x + o.w/2) + Math.cos(a) * ws(6 + i),
+          wy(o.y + o.h/2) + Math.sin(a * 1.3) * ws(20)
+        );
+      }
+      ctx.stroke();
+      // label
+      ctx.fillStyle = "#fff";
+      ctx.font = `bold ${Math.max(9, ws(10))}px Courier New`;
+      ctx.textAlign = "center";
+      ctx.shadowBlur = 0;
+      const label = o.kind.length > 8 ? o.kind.slice(0, 6) : o.kind;
+      ctx.fillText(label.toUpperCase(), wx(o.x + o.w/2), wy(o.y) - 6);
+      ctx.restore();
+
+      // particle trail
+      if (Math.random() < 0.3) {
+        Game.particles.push(new Particle(
+          o.x + o.w/2, o.y + Math.random() * o.h,
+          -40 - Math.random()*40, (Math.random()-0.5)*40,
+          0.4, c, 2
+        ));
+      }
+    } else if (o.type === "coin") {
+      if (o.collected) continue;
+      ctx.fillStyle = "#ffd700";
+      ctx.shadowColor = "#ffd700";
+      ctx.shadowBlur = 12;
+      ctx.beginPath();
+      ctx.arc(wx(o.x), wy(o.y), ws(o.r), 0, Math.PI*2);
+      ctx.fill();
+      ctx.fillStyle = "#fff8";
+      ctx.beginPath();
+      ctx.arc(wx(o.x) - ws(3), wy(o.y) - ws(3), ws(3), 0, Math.PI*2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    } else if (o.type === "well") {
+      const g = ctx.createRadialGradient(wx(o.x), wy(o.y), 0, wx(o.x), wy(o.y), ws(o.r));
+      g.addColorStop(0, "rgba(120,0,255,0.45)");
+      g.addColorStop(1, "rgba(120,0,255,0)");
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(wx(o.x), wy(o.y), ws(o.r), 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+}
+
+function drawAI() {
+  if (!AI.enabled || Game.state !== "PLAYING") return;
+  const box = AI.detectBox;
+  ctx.strokeStyle = "rgba(80,255,120,0.35)";
+  ctx.fillStyle = "rgba(80,255,120,0.06)";
+  ctx.lineWidth = 1;
+  ctx.fillRect(wx(box.x), wy(box.y), ws(box.w), ws(box.h));
+  ctx.strokeRect(wx(box.x), wy(box.y), ws(box.w), ws(box.h));
+
+  if (AI.trajectory.length > 1) {
+    ctx.strokeStyle = "rgba(0,255,200,0.7)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    AI.trajectory.forEach((pt, i) => {
+      if (i === 0) ctx.moveTo(wx(pt.x), wy(pt.y));
+      else ctx.lineTo(wx(pt.x), wy(pt.y));
+    });
+    ctx.stroke();
+  }
+}
+
+function drawHudExtras() {
+  // mini progress bar for chunk
+  const barW = 120, barH = 6;
+  const bx = W / 2 - barW / 2, by = H - 18;
+  ctx.fillStyle = "rgba(0,0,0,0.5)";
+  ctx.fillRect(bx, by, barW, barH);
+  ctx.fillStyle = "#0ff";
+  ctx.shadowColor = "#0ff";
+  ctx.shadowBlur = 8;
+  ctx.fillRect(bx, by, barW * Game.progress, barH);
+  ctx.shadowBlur = 0;
+
+  // beat indicator
+  const br = 6 + Game.beatPulse * 6;
+  ctx.fillStyle = `rgba(255,0,170,${0.4 + Game.beatPulse * 0.5})`;
+  ctx.beginPath();
+  ctx.arc(W / 2, 24, br, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function draw() {
+  const sc = worldScale();
+  drawBackground(sc);
+
+  if (Game.state === "MENU") {
+    // idle preview motion
+    ctx.fillStyle = "#0ff";
+    ctx.shadowColor = "#0ff";
+    ctx.shadowBlur = 20;
+    const bx = W/2 - 20 + Math.sin(performance.now()/400)*40;
+    const by = H*0.72 + Math.abs(Math.sin(performance.now()/300))* -40;
+    ctx.fillRect(bx, by, 40, 40);
+    ctx.shadowBlur = 0;
+    return;
+  }
+
+  if (!Game.level) return;
+
+  ctx.save();
+  if (Game.player && Game.player.mirror > 0) {
+    ctx.translate(W, 0);
+    ctx.scale(-1, 1);
+  }
+
+  drawObjects();
+  drawAI();
+  drawPlayer(Game.player);
+  if (Game.dual) drawPlayer(Game.dual);
+
+  for (const pt of Game.particles) pt.draw(ctx, Game.camX, Game.camY, worldScale() * Game.camZoom);
+
+  ctx.restore();
+
+  if (Game.screenFlash > 0) {
+    ctx.fillStyle = Game.screenFlashColor;
+    ctx.globalAlpha = Math.min(0.55, Game.screenFlash * 2);
+    ctx.fillRect(0, 0, W, H);
+    ctx.globalAlpha = 1;
+  }
+
+  if (Game.state === "PLAYING" || Game.state === "DEAD" || Game.state === "PAUSED") {
+    drawHudExtras();
+  }
+}
+
+/* ---------- Main loop ---------- */
+let fpsAccum = 0, fpsFrames = 0;
+function frame(ts) {
+  if (!Game.lastTime) Game.lastTime = ts;
+  let dt = (ts - Game.lastTime) / 1000;
+  Game.lastTime = ts;
+  dt = Math.min(0.033, dt);
+
+  fpsAccum += dt;
+  fpsFrames++;
+  if (fpsAccum >= 0.5) {
+    Game.fps = Math.round(fpsFrames / fpsAccum);
+    fpsAccum = 0;
+    fpsFrames = 0;
+  }
+
+  update(dt);
+  draw();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// Expose for manual QA / screenshots
+window.__NEON_DASH__ = {
+  start: startGame,
+  restart: restartRun,
+  setDiff: (i) => { Game.diffIdx = Math.max(0, Math.min(5, i)); buildDiffUI(); },
+  toggleAI: () => { AI.enabled = !AI.enabled; updateHud(); return AI.enabled; },
+  getState: () => ({ ...Game, ai: AI.enabled }),
+  kill: () => killPlayer("debug"),
+};
+
+})();
+</script>
+</body>
+</html>
