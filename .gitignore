@@ -1,0 +1,10 @@
+node_modules/
+.cf-pages/
+dist/
+.DS_Store
+*.log
+.env
+.env.*
+!.env.example
+bridge-horror-house/dist/
+bridge-horror-house/node_modules/

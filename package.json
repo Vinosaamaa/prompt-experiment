@@ -1,0 +1,10 @@
+{
+  "name": "prompt-experiment",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Prompt Experiment Lab — public homepage + browser experiments",
+  "scripts": {
+    "build": "node scripts/prepare-deploy.mjs",
+    "build:horror": "npm ci --prefix bridge-horror-house && npm run build --prefix bridge-horror-house"
+  }
+}

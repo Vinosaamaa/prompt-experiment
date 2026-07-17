@@ -1,0 +1,20 @@
+[
+  {
+    "id": "geometry-dash-autoplay",
+    "title": "Neon Dash",
+    "tagline": "Geometry Dash–style autoplay — modes, portals, AI pilot, one HTML file.",
+    "path": "./geometry-dash-autoplay/",
+    "status": "live",
+    "year": 2026,
+    "tags": ["game", "canvas", "ai"]
+  },
+  {
+    "id": "bridge-horror-house",
+    "title": "Bridge Horror House",
+    "tagline": "First-person haunted escape. Flashlight cone, keys, something else in the dark.",
+    "path": "./bridge-horror-house/",
+    "status": "live",
+    "year": 2026,
+    "tags": ["game", "three.js", "horror"]
+  }
+]
