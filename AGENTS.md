@@ -34,25 +34,27 @@ Project-specific notes may also live inside an experiment folder; **this file wi
 
 ### Experiments
 14. **One experiment = one top-level folder** (e.g. `geometry-dash-autoplay/`, `bridge-horror-house/`).
-15. **Register every public experiment in `experiments.json`** so the homepage lists it automatically.
-16. Prefer **self-contained** experiments (single HTML or a small local app). Avoid cross-experiment imports.
-17. Do not modify unrelated experiments unless the task explicitly requires it.
-18. If an experiment needs a build step (Vite, etc.), keep build config inside that folder and ensure the root Cloudflare build still publishes it.
+15. **Save the original experiment prompt** under `prompts/<experiment-folder-name>.md` (full prompt text). Keep `prompts/README.md` index updated.
+16. **Register every public experiment in `experiments.json`** so the homepage lists it automatically.
+17. Prefer **self-contained** experiments (single HTML or a small local app). Avoid cross-experiment imports.
+18. Do not modify unrelated experiments unless the task explicitly requires it.
+19. If an experiment needs a build step (Vite, etc.), keep build config inside that folder and ensure the root Cloudflare build still publishes it.
 
 ### Quality bar
-19. Ship something **runnable**: local instructions and/or a working deploy path.
-20. For visual/interactive work, include a short recording or screenshots in the PR when feasible.
-21. Fix bugs you introduce before asking for merge.
-22. Do not commit secrets, `.env` files with credentials, `node_modules/`, or huge binary dumps.
+20. Ship something **runnable**: local instructions and/or a working deploy path.
+21. For visual/interactive work, include a short recording or screenshots in the PR when feasible.
+22. Fix bugs you introduce before asking for merge.
+23. Do not commit secrets, `.env` files with credentials, `node_modules/`, or huge binary dumps.
 
 ### Site & deploy
-23. The lab homepage is root `index.html`. Treat it as the public front door — keep it polished.
-24. Cloudflare Pages auto-deploys from `main`. Assume every merge is production.
-25. After changing deploy/build config, verify the publish script still outputs all live experiments.
+24. The lab homepage is root `index.html`. Treat it as the public front door — keep it polished.
+25. Cloudflare Pages auto-deploys from `main`. Assume every merge is production.
+26. After changing deploy/build config, verify the publish script still outputs all live experiments.
 
 ### Communication inside the repo
-26. Add new **global** agent rules to this `AGENTS.md` via PR (do not bury them only in chat).
-27. Experiment-specific creative briefs can live in that folder (`SYSTEM_PROMPT.md`, `README.md`, etc.).
+27. Add new **global** agent rules to this `AGENTS.md` via PR (do not bury them only in chat).
+28. Experiment-specific creative briefs can live in that folder (`SYSTEM_PROMPT.md`, `README.md`, etc.).
+
 
 ---
 
@@ -60,6 +62,7 @@ Project-specific notes may also live inside an experiment folder; **this file wi
 
 - [ ] On a feature branch (not `main`)
 - [ ] Experiment folder added/updated
+- [ ] Original prompt saved under `prompts/`
 - [ ] `experiments.json` updated if the experiment should appear on the homepage
 - [ ] Runs locally (or static path works)
 - [ ] No secrets / no `node_modules` committed
