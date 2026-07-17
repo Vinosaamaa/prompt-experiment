@@ -16,6 +16,8 @@
 
 The homepage (`index.html`) lists everything registered in [`experiments.json`](./experiments.json).
 
+Original experiment prompts are archived in [`prompts/`](./prompts/).
+
 ---
 
 ## Quick start (local)
