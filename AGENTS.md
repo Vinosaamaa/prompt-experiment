@@ -12,7 +12,7 @@ Project-specific notes may also live inside an experiment folder; **this file wi
 3. Do not force-push to `main`. Do not commit on `main` locally and push.
 4. Prefer branch names like `cursor/<short-description>-xxxx` (lowercase).
 5. Keep PRs focused: one experiment or one cohesive change set per PR when practical.
-6. **Do not merge a PR into `main` unless the human explicitly agrees / asks to merge.** Opening the PR is enough; wait for approval.
+6. **After an experiment is complete (built, tested, bugs fixed) or a bugfix is done, merge the PR into `main`** unless the human explicitly says not to merge.
 7. **After a PR is merged, close it (if still open) and delete the feature branch** (remote and local). Do not leave merged feature branches around.
 
 `main` is the public Cloudflare Pages production branch. A direct push skips review and can break the live lab.
@@ -26,7 +26,7 @@ Project-specific notes may also live inside an experiment folder; **this file wi
 10. Fix the valid issues, push updates to the same feature branch, and re-check the review feedback.
 11. Repeat this **review → fix → push** loop until the review issues are addressed, **at most 3 times**.
 12. Do not ignore open review comments. If something should not be changed, reply on the thread explaining why.
-13. Do **not** merge while unresolved review-fix work is still in progress, and still only merge when the human agrees (rule 6).
+13. Finish the review→fix loop (max 3) before merging. Then merge per rule 6 unless the human said not to.
 
 ---
 
@@ -65,13 +65,14 @@ Project-specific notes may also live inside an experiment folder; **this file wi
 - [ ] No secrets / no `node_modules` committed
 - [ ] PR describes what changed and how to try it
 
-## Review checklist (before asking to merge)
+## Review checklist (before merging)
 
 - [ ] CodeRabbit / PR review has run
 - [ ] All review comments were read
 - [ ] Valid issues fixed (review→fix loop, max 3)
 - [ ] Replied on threads that were intentionally not changed
-- [ ] Human explicitly agreed to merge
+- [ ] Human did not ask to hold the merge
+- [ ] Merge to `main`, then delete the feature branch
 
 ## After merge checklist
 
