@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
 <title>Neon Dash — Geometry Dash Autoplay</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230a0a1a'/%3E%3Crect x='6' y='6' width='20' height='20' fill='%2300f0ff'/%3E%3C/svg%3E" />
 <style>
   :root {
     --bg: #0a0a1a;
@@ -222,7 +223,7 @@
 
 const DIFFS = [
   { id:0, name:"Easy", stars:"★☆", face:"😊", color:"#4af",
-    speed:280, dens:0.35, gap:1.4, aiRange:520, fake:0, invis:0, dual:0, modeEvery:14, scroll:1.0, bpm:100 },
+    speed:260, dens:0.28, gap:1.55, aiRange:560, fake:0, invis:0, dual:0, modeEvery:16, scroll:0.95, bpm:100 },
   { id:1, name:"Normal", stars:"★★★", face:"😌", color:"#4d8",
     speed:320, dens:0.55, gap:1.0, aiRange:440, fake:0.05, invis:0, dual:0.05, modeEvery:10, scroll:1.15, bpm:118 },
   { id:2, name:"Hard", stars:"★★★★★", face:"😟", color:"#fa4",
@@ -472,6 +473,7 @@ function createPlayer() {
     orbArmed: false,
     padCD: 0,
     portalCD: 0,
+    bluePadT: 0,
     flash: 0,
     flashColor: "#fff",
   };
@@ -511,8 +513,8 @@ function themedChunk(level) {
   const themes = ["calm","stairs","ship","ufo","wave","ball","robot","spider","mixed","boss"];
   // Force early calm, then introduce modes
   let theme;
-  if (level.chunkIdx < 1) theme = "calm";
-  else if (level.chunkIdx < 2) theme = "stairs";
+  if (level.chunkIdx < 2) theme = "calm";
+  else if (level.chunkIdx < 3) theme = "stairs";
   else {
     const pool = themes.slice(0, 2 + Math.min(8, Math.floor(level.chunkIdx / 1.5)));
     theme = pool[Math.floor(rng() * pool.length)];
@@ -569,11 +571,12 @@ function themedChunk(level) {
   };
 
   if (theme === "calm") {
+    const calmGap = Math.max(spikeEvery * 1.6, 160 * gapMul);
     while (x < startX + width - 120) {
-      if (rng() < 0.5 * dens) addSpike(x);
-      if (rng() < 0.25) objs.push(makePad(x + 40, GROUND_Y - 10, rng() < 0.7 ? "yellow" : "red"));
-      if (rng() < 0.2) objs.push(makeOrb(x + 60, GROUND_Y - 90, ["blue","yellow","pink","green"][Math.floor(rng()*4)]));
-      x += spikeEvery * (1.2 + rng());
+      if (rng() < 0.35 * dens) addSpike(x);
+      if (rng() < 0.3) objs.push(makePad(x + 50, GROUND_Y - 10, rng() < 0.75 ? "yellow" : "red"));
+      if (rng() < 0.25) objs.push(makeOrb(x + 70, GROUND_Y - 90, ["blue","yellow","pink","green"][Math.floor(rng()*4)]));
+      x += calmGap * (1.1 + rng() * 0.5);
     }
   } else if (theme === "stairs") {
     let h = 0;
@@ -767,39 +770,60 @@ const AI = {
       (o.type === "spike" && !o.fake) ||
       o.type === "saw" || o.type === "mspike" || o.type === "well"
     );
+    // Mode-aware hazard subset: cube/robot mainly care about floor-level threats
+    const groundHazards = hazards.filter(h => {
+      if (h.type === "spike") return h.side !== "ceil" && h.y >= GROUND_Y - 80;
+      if (h.type === "saw" || h.type === "mspike") return h.y + (h.r || h.h || 0) > GROUND_Y - 100;
+      return true;
+    });
     const pads = ahead.filter(o => o.type === "pad");
     const orbs = ahead.filter(o => o.type === "orb" && !o.used);
     const portals = ahead.filter(o => o.type === "portal");
+    const mode = player.mode;
 
-    const nearestHazard = hazards
+    const pickNearest = (list) => list
       .map(h => ({ h, dist: h.x - player.x }))
       .filter(x => x.dist > -10)
       .sort((a,b) => a.dist - b.dist)[0];
 
-    const mode = player.mode;
+    const nearestHazard = pickNearest(
+      (mode === "cube" || mode === "robot") ? groundHazards : hazards
+    );
 
     if (mode === "cube" || mode === "robot") {
-      if (nearestHazard && nearestHazard.dist < (mode === "robot" ? 140 : 110) * player.speedMul) {
-        // Jump if on ground or have jumps
-        if (player.onGround || player.jumps < player.maxJumps) {
+      // Jump lead time scales with horizontal speed so we clear spikes reliably
+      const spd = Math.max(200, level.diff.speed * player.speedMul);
+      const jumpLead = (mode === "robot" ? 0.42 : 0.34) * spd;
+      const airLead = 0.22 * spd;
+      if (nearestHazard && nearestHazard.dist > 8) {
+        const needJump = player.onGround
+          ? nearestHazard.dist < jumpLead
+          : (player.jumps < player.maxJumps && nearestHazard.dist < airLead && player.vy * player.grav > -50);
+        if (needJump) {
           this.wantJump = true;
-          this.wantHold = mode === "robot" && nearestHazard.dist < 90;
+          this.wantHold = mode === "robot" && nearestHazard.dist < jumpLead * 0.7;
         }
+      }
+      // Cluster: if 2+ spikes close together, jump earlier / hold
+      const cluster = groundHazards.filter(h => h.x - player.x > 0 && h.x - player.x < jumpLead + 80);
+      if (cluster.length >= 2 && player.onGround && cluster[0].x - player.x < jumpLead + 20) {
+        this.wantJump = true;
+        this.wantHold = true;
       }
       // Use pads/orbs
       for (const p of pads) {
-        if (Math.abs(p.x - player.x) < 50 && Math.abs(p.y - (player.y + ph)) < 40) {
+        if (p.x - player.x > -10 && p.x - player.x < 55 && Math.abs(p.y - (player.y + ph)) < 50) {
           this.wantJump = true;
         }
       }
       for (const o of orbs) {
-        if (Math.abs(o.x - (player.x + pw/2)) < 40 && Math.abs(o.y - (player.y + ph/2)) < 50) {
+        if (Math.abs(o.x - (player.x + pw/2)) < 45 && Math.abs(o.y - (player.y + ph/2)) < 55) {
           this.wantJump = true;
         }
       }
       // Gaps: if no platform under predicted landing
       const platforms = ahead.filter(o => o.type === "platform");
-      const lookX = player.x + 80 * player.speedMul;
+      const lookX = player.x + 0.28 * spd;
       const hasFloor = platforms.some(p => lookX >= p.x && lookX <= p.x + p.w && Math.abs(p.y - GROUND_Y) < 5);
       if (!hasFloor && player.onGround) this.wantJump = true;
     } else if (mode === "ship") {
@@ -990,7 +1014,8 @@ function updateHud() {
   const d = DIFFS[Game.diffIdx];
   document.getElementById("scoreHud").textContent = Math.floor(Game.score).toLocaleString() + " m";
   document.getElementById("attemptHud").textContent = `Attempt ${Game.attempt} · Deaths ${Game.deaths}`;
-  document.getElementById("modeHud").textContent = MODES[Game.player?.mode || "cube"].name;
+  document.getElementById("modeHud").textContent =
+    MODES[Game.player?.mode || "cube"].name + (Game.player?.grav < 0 ? " ▲" : "");
   document.getElementById("modeHud").style.color = MODES[Game.player?.mode || "cube"].color;
   document.getElementById("seedHud").textContent = `Seed: ${Game.seed}`;
   document.getElementById("seedHud").style.display = Game.showSeed ? "inline-block" : "none";
@@ -1253,8 +1278,7 @@ function applyPad(p, pad) {
   else if (pad.kind === "blue") {
     p.grav *= -1;
     p.vy = -700 * p.grav;
-    // temporary anti-grav feel
-    setTimeout(() => { if (!p.dead) p.grav *= -1; }, 1200);
+    p.bluePadT = 1.2; // temporary anti-grav; restored in updatePlayer
   }
   burst(p, pad.kind === "red" ? "#f44" : pad.kind === "blue" ? "#4af" : "#ff0");
 }
@@ -1285,6 +1309,10 @@ function updatePlayer(p, dt, isDual) {
   p.padCD = Math.max(0, p.padCD - dt);
   p.portalCD = Math.max(0, p.portalCD - dt);
   p.flash = Math.max(0, p.flash - dt);
+  if (p.bluePadT > 0) {
+    p.bluePadT -= dt;
+    if (p.bluePadT <= 0) p.grav *= -1;
+  }
 
   const sc = p.sizeMul;
   const pw = p.w * sc, ph = p.h * sc;
@@ -1430,7 +1458,7 @@ function updatePlayer(p, dt, isDual) {
         if (Math.sin(o.invisT * 3) < -0.2) continue;
       }
       if (o.fake) continue;
-      if (aabb(p.x + 4, p.y + 4, pw - 8, ph - 8, o.x + 2, o.y + 2, o.w - 4, o.h - 4)) {
+      if (aabb(p.x + 6, p.y + 6, pw - 12, ph - 12, o.x + 4, o.y + 4, o.w - 8, o.h - 8)) {
         killPlayer("spike");
         return;
       }
