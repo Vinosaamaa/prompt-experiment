@@ -12,6 +12,7 @@
 |------------|--------|-------------|
 | **Neon Dash** | [`geometry-dash-autoplay/`](./geometry-dash-autoplay/) | Geometry Dash–style autoplay (single HTML, Canvas + Web Audio) |
 | **Bridge Horror House** | [`bridge-horror-house/`](./bridge-horror-house/) | First-person haunted escape (Three.js + Vite) |
+| **Jack — 3D Creator** | [`jack-3d-portfolio/`](./jack-3d-portfolio/) | React portfolio landing (Tailwind + Framer Motion) |
 
 The homepage (`index.html`) lists everything registered in [`experiments.json`](./experiments.json).
 
@@ -35,6 +36,15 @@ Bridge Horror House alone:
 cd bridge-horror-house
 npm install
 npm run dev
+```
+
+Jack — 3D Creator portfolio:
+
+```bash
+cd jack-3d-portfolio
+npm install
+npm run dev
+# → http://localhost:5173/jack-3d-portfolio/
 ```
 
 ---

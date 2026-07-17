@@ -16,5 +16,14 @@
     "status": "live",
     "year": 2026,
     "tags": ["game", "three.js", "horror"]
+  },
+  {
+    "id": "jack-3d-portfolio",
+    "title": "Jack — 3D Creator",
+    "tagline": "Dark kinetic portfolio: hero magnet portrait, scroll marquees, sticky project stack.",
+    "path": "./jack-3d-portfolio/",
+    "status": "live",
+    "year": 2026,
+    "tags": ["portfolio", "react", "motion"]
   }
 ]

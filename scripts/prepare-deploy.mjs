@@ -20,15 +20,18 @@ rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
 
 // Build Vite experiment(s)
-const horror = join(root, 'bridge-horror-house');
-if (existsSync(join(horror, 'package.json'))) {
-  console.log('Building bridge-horror-house…');
-  run('npm', ['ci'], horror);
-  run('npm', ['run', 'build'], horror);
+const viteApps = ['bridge-horror-house', 'jack-3d-portfolio'];
+for (const name of viteApps) {
+  const dir = join(root, name);
+  if (existsSync(join(dir, 'package.json'))) {
+    console.log(`Building ${name}…`);
+    run('npm', ['ci'], dir);
+    run('npm', ['run', 'build'], dir);
+  }
 }
 
 // Copy lab shell
-for (const f of ['index.html', 'experiments.json', 'AGENTS.md']) {
+for (const f of ['index.html', 'experiments.json', 'AGENTS.md', 'README.md']) {
   const src = join(root, f);
   if (existsSync(src)) cpSync(src, join(out, f));
 }
@@ -39,12 +42,14 @@ if (existsSync(geo)) {
   cpSync(geo, join(out, 'geometry-dash-autoplay'), { recursive: true });
 }
 
-// Built horror game → /bridge-horror-house/
-const horrorDist = join(horror, 'dist');
-if (existsSync(horrorDist)) {
-  cpSync(horrorDist, join(out, 'bridge-horror-house'), { recursive: true });
-} else {
-  console.warn('Warning: bridge-horror-house/dist missing — skipping');
+// Built Vite apps → /name/
+for (const name of viteApps) {
+  const dist = join(root, name, 'dist');
+  if (existsSync(dist)) {
+    cpSync(dist, join(out, name), { recursive: true });
+  } else {
+    console.warn(`Warning: ${name}/dist missing — skipping`);
+  }
 }
 
 // Cloudflare: SPA-ish fallback not needed; add headers for COOP optional
